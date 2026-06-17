@@ -3,18 +3,25 @@ export const API_URL =
   "http://fi5.bot-hosting.net:22896";
 
 export interface PackageDef {
-  id: string;
+  id: string; // backend key: 6hours | 24hours | 48hours | 7days
   name: string;
   price: number;
   duration?: string;
 }
 
 export const DEFAULT_PACKAGES: PackageDef[] = [
-  { id: "500", name: "Saa 6", price: 500, duration: "6 hours" },
-  { id: "1000", name: "Masaa 24", price: 1000, duration: "1 day" },
-  { id: "2000", name: "Masaa 48", price: 2000, duration: "2 days" },
-  { id: "5000", name: "Siku 7", price: 5000, duration: "1 week" },
+  { id: "6hours", name: "Masaa 6", price: 500, duration: "6 hours" },
+  { id: "24hours", name: "Masaa 24", price: 1000, duration: "1 day" },
+  { id: "48hours", name: "Masaa 48", price: 2000, duration: "2 days" },
+  { id: "7days", name: "Siku 7", price: 5000, duration: "1 week" },
 ];
+
+const LABEL_BY_ID: Record<string, string> = {
+  "6hours": "Masaa 6",
+  "24hours": "Masaa 24",
+  "48hours": "Masaa 48",
+  "7days": "Siku 7",
+};
 
 async function jsonOrText(res: Response) {
   const text = await res.text();
@@ -30,13 +37,15 @@ export async function getPackages(): Promise<PackageDef[]> {
     const res = await fetch(`${API_URL}/packages`);
     if (!res.ok) return DEFAULT_PACKAGES;
     const data = await res.json();
-    if (Array.isArray(data) && data.length) {
-      return data.map((p: any, i: number) => ({
-        id: String(p.id ?? p.price ?? i),
-        name: p.name ?? `${p.price} TZS`,
-        price: Number(p.price ?? p.amount ?? 0),
-        duration: p.duration ?? p.hours,
+    // Backend returns an object map: { '6hours': { label, amount }, ... }
+    if (data && typeof data === "object" && !Array.isArray(data)) {
+      const list: PackageDef[] = Object.entries(data).map(([id, v]: [string, any]) => ({
+        id,
+        name: LABEL_BY_ID[id] ?? v?.label ?? id,
+        price: Number(v?.amount ?? v?.price ?? 0),
+        duration: v?.limit_uptime,
       }));
+      if (list.length) return list;
     }
     return DEFAULT_PACKAGES;
   } catch {
@@ -45,6 +54,7 @@ export async function getPackages(): Promise<PackageDef[]> {
 }
 
 export interface PayResponse {
+  success?: boolean;
   orderReference?: string;
   reference?: string;
   order_reference?: string;
@@ -54,16 +64,17 @@ export interface PayResponse {
 
 export async function payMongike(input: {
   phone: string;
-  amount: number;
-  package?: string;
+  package_name: string;
 }): Promise<PayResponse> {
   const res = await fetch(`${API_URL}/pay-mongike`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ phone: input.phone, package_name: input.package_name }),
   });
   const data = (await jsonOrText(res)) as PayResponse;
-  if (!res.ok) throw new Error(data.message || `Payment failed (${res.status})`);
+  if (!res.ok || data.success === false) {
+    throw new Error(data.message || `Payment failed (${res.status})`);
+  }
   return data;
 }
 
@@ -73,7 +84,10 @@ export function extractReference(r: PayResponse): string | undefined {
 }
 
 export interface PaymentStatus {
+  success?: boolean;
+  paid?: boolean;
   status?: string;
+  status_detail?: string;
   voucherCode?: string;
   voucher?: string;
   voucher_code?: string;
