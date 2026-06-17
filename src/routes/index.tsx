@@ -1,171 +1,390 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { Wifi, Zap, ShieldCheck, Clock, CreditCard, ArrowRight } from "lucide-react";
-import { Navbar } from "@/components/Navbar";
-import { Footer } from "@/components/Footer";
-import { PackageCard } from "@/components/PackageCard";
-import { PACKAGES } from "@/lib/api";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useRef, useState } from "react";
+import {
+  checkVoucher,
+  extractReference,
+  formatTzs,
+  getPackages,
+  getPaymentStatus,
+  payMongike,
+  type PackageDef,
+} from "@/lib/api";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "SHIMBA WIFI — Fast, affordable WiFi vouchers" },
+      { title: "SHIMBA WiFi — Nunua au Tumia Vocha" },
       {
         name: "description",
         content:
-          "Buy SHIMBA WIFI hotspot vouchers in seconds. Pay with Mobile Money and get instant high-speed internet access in Tanzania.",
+          "SHIMBA WiFi — nunua vocha kwa M-Pesa, Tigo Pesa, Airtel Money au ingia kwa vocha yako.",
       },
-      { property: "og:title", content: "SHIMBA WIFI — Fast WiFi vouchers" },
-      {
-        property: "og:description",
-        content:
-          "Instant WiFi vouchers paid via Mobile Money. 6h, 24h, 48h and 7-day packages.",
-      },
+      { name: "theme-color", content: "#0b1220" },
     ],
   }),
-  component: LandingPage,
+  component: PortalPage,
 });
 
-function LandingPage() {
+type Tab = "buy" | "use";
+
+function PortalPage() {
+  const [tab, setTab] = useState<Tab>("buy");
+  const [voucherPrefill, setVoucherPrefill] = useState("");
+
   return (
-    <div className="min-h-screen bg-background">
-      <Navbar />
+    <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_10%_-10%,rgba(34,211,238,0.18),transparent_60%),radial-gradient(1000px_500px_at_110%_10%,rgba(59,130,246,0.18),transparent_60%),linear-gradient(180deg,#070b14_0%,#0b1220_100%)] text-[#eaf2ff]">
+      <div className="mx-auto w-full max-w-[520px] px-4 pb-10 pt-5">
+        <Header />
 
-      {/* Hero */}
-      <section className="relative overflow-hidden gradient-brand text-white">
-        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_20%_20%,white,transparent_40%),radial-gradient(circle_at_80%_60%,white,transparent_40%)]" />
-        <div className="relative mx-auto grid max-w-6xl gap-10 px-4 py-20 md:grid-cols-2 md:py-28">
-          <div>
-            <span className="inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-medium ring-1 ring-white/20">
-              <Zap className="h-3 w-3" /> Instant activation
-            </span>
-            <h1 className="mt-4 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">
-              Fast WiFi.{" "}
-              <span className="text-gradient-brand">Anywhere you Shimba.</span>
-            </h1>
-            <p className="mt-4 max-w-xl text-white/80">
-              Buy a hotspot voucher with Mobile Money and get online in seconds.
-              Reliable speeds, transparent pricing, no contracts.
-            </p>
-            <div className="mt-7 flex flex-wrap gap-3">
-              <Link
-                to="/packages"
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition hover:opacity-90"
-              >
-                Buy Voucher <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                to="/voucher"
-                className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-5 py-3 text-sm font-semibold text-white ring-1 ring-white/30 backdrop-blur transition hover:bg-white/20"
-              >
-                Check Voucher
-              </Link>
-            </div>
-            <div className="mt-8 grid grid-cols-3 gap-4 text-sm">
-              {[
-                ["10k+", "Active users"],
-                ["99.9%", "Uptime"],
-                ["24/7", "Support"],
-              ].map(([v, l]) => (
-                <div key={l}>
-                  <div className="text-2xl font-bold">{v}</div>
-                  <div className="text-white/70">{l}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="rounded-3xl border border-white/20 bg-white/10 p-6 shadow-2xl backdrop-blur">
-              <div className="flex items-center gap-3">
-                <span className="grid h-12 w-12 place-items-center rounded-2xl bg-primary text-primary-foreground">
-                  <Wifi className="h-6 w-6" />
-                </span>
-                <div>
-                  <p className="text-sm text-white/70">Most popular</p>
-                  <p className="text-lg font-semibold">24 Hours — 1,000 TZS</p>
-                </div>
-              </div>
-              <div className="mt-5 space-y-3">
-                {PACKAGES.slice(0, 3).map((p) => (
-                  <div
-                    key={p.id}
-                    className="flex items-center justify-between rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/10"
-                  >
-                    <span className="text-sm font-medium">{p.name}</span>
-                    <span className="text-sm font-semibold">
-                      {p.priceTzs.toLocaleString("en-TZ")} TZS
-                    </span>
-                  </div>
-                ))}
-              </div>
-              <Link
-                to="/packages"
-                className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground"
-              >
-                See all packages
-              </Link>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="mx-auto max-w-6xl px-4 py-16">
-        <div className="grid gap-6 md:grid-cols-3">
-          {[
-            { icon: Zap, title: "Instant Activation", desc: "Voucher delivered the moment your payment is confirmed." },
-            { icon: ShieldCheck, title: "Secure Payments", desc: "Mobile Money payments processed safely via Mongike." },
-            { icon: Clock, title: "Flexible Plans", desc: "From 6 hours to 7 days — pick what fits your day." },
-          ].map((f) => (
-            <div key={f.title} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
-              <span className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
-                <f.icon className="h-5 w-5" />
-              </span>
-              <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">{f.desc}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Packages preview */}
-      <section className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="flex items-end justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Pick a package</h2>
-            <p className="mt-1 text-muted-foreground">Fair prices. Instant vouchers.</p>
-          </div>
-          <Link to="/packages" className="hidden text-sm font-semibold text-primary hover:underline sm:inline">
-            View all →
-          </Link>
-        </div>
-        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {PACKAGES.map((p) => (
-            <PackageCard key={p.id} pkg={p} onBuy={() => (window.location.href = "/packages")} />
-          ))}
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="mx-auto max-w-6xl px-4 pb-16">
-        <div className="flex flex-col items-center justify-between gap-4 rounded-2xl bg-secondary p-8 text-center text-secondary-foreground sm:flex-row sm:text-left">
-          <div className="flex items-center gap-3">
-            <CreditCard className="h-8 w-8 text-primary" />
-            <div>
-              <h3 className="text-lg font-bold">Ready to get online?</h3>
-              <p className="text-sm text-secondary-foreground/70">Pay with Mobile Money in seconds.</p>
-            </div>
-          </div>
-          <Link
-            to="/packages"
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground"
+        <div className="mb-4 grid grid-cols-2 gap-1.5 rounded-2xl border border-[#1f2a44] bg-[#0e1626] p-1.5">
+          <button
+            onClick={() => setTab("buy")}
+            className={`rounded-xl px-3 py-3.5 text-[15px] font-bold transition-all ${
+              tab === "buy"
+                ? "bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.35)]"
+                : "text-[#8aa0c4] hover:text-white"
+            }`}
           >
-            Buy Voucher <ArrowRight className="h-4 w-4" />
-          </Link>
+            Nunua Vocha
+          </button>
+          <button
+            onClick={() => setTab("use")}
+            className={`rounded-xl px-3 py-3.5 text-[15px] font-bold transition-all ${
+              tab === "use"
+                ? "bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.35)]"
+                : "text-[#8aa0c4] hover:text-white"
+            }`}
+          >
+            Tumia Vocha
+          </button>
         </div>
-      </section>
 
-      <Footer />
+        {tab === "buy" ? (
+          <BuyTab
+            onGotVoucher={(code) => {
+              setVoucherPrefill(code);
+              setTab("use");
+            }}
+          />
+        ) : (
+          <UseTab prefill={voucherPrefill} />
+        )}
+
+        <Instructions />
+      </div>
+    </div>
+  );
+}
+
+function Header() {
+  return (
+    <header className="mb-4 flex items-center gap-3 pt-5">
+      <div className="relative grid h-12 w-12 place-items-center rounded-[14px] bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[24px] font-black text-[#001018] shadow-[0_8px_24px_-8px_rgba(34,211,238,0.45)]">
+        S
+      </div>
+      <div className="flex-1">
+        <h1 className="m-0 bg-gradient-to-br from-[#22d3ee] to-[#93c5fd] bg-clip-text text-[22px] font-black tracking-[1.5px] text-transparent">
+          SHIMBA WIFI
+        </h1>
+        <span className="mt-0.5 inline-flex items-center gap-1.5 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
+          Live
+        </span>
+      </div>
+    </header>
+  );
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-5 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.7)]">
+      {children}
+    </div>
+  );
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="mb-1.5 mt-3.5 block text-[13px] font-semibold text-[#8aa0c4]">
+      {children}
+    </label>
+  );
+}
+
+const inputClass =
+  "w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3.5 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15";
+
+const btnClass =
+  "mt-4 w-full cursor-pointer rounded-2xl bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] px-4 py-4 text-base font-extrabold text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.4)] transition active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60";
+
+function normalizePhone(raw: string) {
+  let p = raw.replace(/\D/g, "");
+  if (p.startsWith("255")) return p;
+  if (p.startsWith("0")) return "255" + p.slice(1);
+  if (p.length === 9) return "255" + p;
+  return p;
+}
+
+function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
+  const [packages, setPackages] = useState<PackageDef[]>([]);
+  const [selected, setSelected] = useState<string>("");
+  const [phone, setPhone] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ kind: "info" | "error" | "success"; text: string } | null>(null);
+  const [voucher, setVoucher] = useState<string | null>(null);
+  const pollTimer = useRef<number | null>(null);
+
+  useEffect(() => {
+    getPackages().then((pkgs) => {
+      setPackages(pkgs);
+      if (pkgs[0]) setSelected(pkgs[0].id);
+    });
+    return () => {
+      if (pollTimer.current) window.clearInterval(pollTimer.current);
+    };
+  }, []);
+
+  const pkg = packages.find((p) => p.id === selected);
+
+  async function handlePay(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setVoucher(null);
+    if (!pkg) return;
+    const np = normalizePhone(phone);
+    if (np.length < 12) {
+      setMsg({ kind: "error", text: "Tafadhali weka namba sahihi ya simu (mfano 0712345678)." });
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await payMongike({ phone: np, amount: pkg.price, package: pkg.id });
+      const ref = extractReference(r);
+      if (!ref) throw new Error("Hakuna order reference kutoka kwa server.");
+      setMsg({
+        kind: "info",
+        text: "Ombi la malipo limetumwa. Angalia simu yako na thibitisha PIN. Tunasubiri...",
+      });
+      let attempts = 0;
+      pollTimer.current = window.setInterval(async () => {
+        attempts++;
+        try {
+          const s = await getPaymentStatus(ref);
+          const code = s.voucherCode || s.voucher || s.voucher_code;
+          if (code) {
+            if (pollTimer.current) window.clearInterval(pollTimer.current);
+            setLoading(false);
+            setVoucher(String(code));
+            setMsg({ kind: "success", text: "Malipo yamekamilika! Vocha yako tayari." });
+          } else if (s.status === "failed") {
+            if (pollTimer.current) window.clearInterval(pollTimer.current);
+            setLoading(false);
+            setMsg({ kind: "error", text: s.message || "Malipo yameshindikana." });
+          }
+        } catch {
+          /* keep polling */
+        }
+        if (attempts > 40) {
+          if (pollTimer.current) window.clearInterval(pollTimer.current);
+          setLoading(false);
+          setMsg({
+            kind: "error",
+            text: "Muda umeisha. Kama umelipa, ingia kwenye Tumia Vocha ukiwa na code uliyopata kwa SMS.",
+          });
+        }
+      }, 4000);
+    } catch (err: any) {
+      setLoading(false);
+      setMsg({ kind: "error", text: err?.message || "Kuna tatizo. Jaribu tena." });
+    }
+  }
+
+  async function copyVoucher() {
+    if (!voucher) return;
+    try {
+      await navigator.clipboard.writeText(voucher);
+      setMsg({ kind: "success", text: "Vocha imenakiliwa." });
+    } catch {
+      /* noop */
+    }
+  }
+
+  return (
+    <Card>
+      <h2 className="m-0 text-xl font-bold">Nunua Vocha</h2>
+      <p className="mb-4 mt-1 text-sm text-[#8aa0c4]">
+        Chagua kifurushi, weka namba ya simu, lipa kwa mtandao wako.
+      </p>
+
+      {voucher ? (
+        <div className="mt-3 rounded-[18px] border-2 border-[#22d3ee]/40 bg-gradient-to-b from-[#020d1a] to-[#011020] p-5 text-center shadow-[0_0_40px_-10px_rgba(34,211,238,0.2)]">
+          <div className="text-4xl">✅</div>
+          <div className="mt-1 text-lg font-extrabold text-emerald-300">Malipo Yamekamilika!</div>
+          <p className="mb-4 mt-1 text-[13px] text-[#8aa0c4]">Tumia vocha hii kuingia kwenye WiFi.</p>
+          <div className="mb-2 text-[11px] uppercase tracking-[2px] text-[#8aa0c4]">Voucher Code</div>
+          <button
+            onClick={copyVoucher}
+            className="w-full rounded-2xl border border-[#22d3ee]/30 bg-[#000d1a] px-4 py-3.5 font-mono text-2xl font-bold tracking-widest text-[#22d3ee]"
+          >
+            {voucher}
+          </button>
+          <button
+            onClick={() => onGotVoucher(voucher)}
+            className={btnClass}
+          >
+            Tumia Sasa
+          </button>
+        </div>
+      ) : (
+        <form onSubmit={handlePay}>
+          <Label>Kifurushi</Label>
+          <select
+            className={inputClass}
+            value={selected}
+            onChange={(e) => setSelected(e.target.value)}
+            disabled={loading}
+          >
+            {packages.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name} — {formatTzs(p.price)}
+                {p.duration ? ` (${p.duration})` : ""}
+              </option>
+            ))}
+          </select>
+
+          <Label>Namba ya Simu</Label>
+          <input
+            className={inputClass}
+            type="tel"
+            inputMode="tel"
+            placeholder="0712 345 678"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            disabled={loading}
+          />
+
+          <button type="submit" className={btnClass} disabled={loading || !pkg}>
+            {loading ? "Inasubiri malipo..." : `Lipa ${pkg ? formatTzs(pkg.price) : ""}`}
+          </button>
+        </form>
+      )}
+
+      {msg && <Message kind={msg.kind}>{msg.text}</Message>}
+    </Card>
+  );
+}
+
+function UseTab({ prefill }: { prefill: string }) {
+  const [code, setCode] = useState(prefill);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [msg, setMsg] = useState<{ kind: "info" | "error" | "success"; text: string } | null>(null);
+
+  useEffect(() => {
+    if (prefill) setCode(prefill);
+  }, [prefill]);
+
+  async function handleCheck(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setResult(null);
+    const c = code.trim();
+    if (!c) {
+      setMsg({ kind: "error", text: "Weka voucher code." });
+      return;
+    }
+    setLoading(true);
+    try {
+      const r = await checkVoucher(c);
+      setResult(r);
+      if (r?.status === "valid" || r?.valid === true || r?.success === true) {
+        setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
+      } else if (r?.status === "used") {
+        setMsg({ kind: "info", text: "Vocha hii tayari imetumika." });
+      } else {
+        setMsg({ kind: "error", text: r?.message || "Vocha haijapatikana au imeisha." });
+      }
+    } catch (err: any) {
+      setMsg({ kind: "error", text: err?.message || "Tatizo kuangalia vocha." });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <Card>
+      <h2 className="m-0 text-xl font-bold">Tumia Vocha</h2>
+      <p className="mb-4 mt-1 text-sm text-[#8aa0c4]">
+        Weka voucher code yako uliyopata kupitia SMS au baada ya malipo.
+      </p>
+      <form onSubmit={handleCheck}>
+        <Label>Voucher Code</Label>
+        <input
+          className={`${inputClass} text-center font-mono tracking-widest`}
+          type="text"
+          autoCapitalize="characters"
+          placeholder="ABCD1234"
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+        />
+        <button type="submit" className={btnClass} disabled={loading}>
+          {loading ? "Inakagua..." : "Angalia Vocha"}
+        </button>
+      </form>
+
+      {result && (result.status === "valid" || result.valid === true) && (
+        <a
+          href="http://192.168.88.1/login"
+          className="mt-3 block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)]"
+        >
+          Ingia kwenye WiFi →
+        </a>
+      )}
+
+      {msg && <Message kind={msg.kind}>{msg.text}</Message>}
+    </Card>
+  );
+}
+
+function Message({
+  kind,
+  children,
+}: {
+  kind: "info" | "error" | "success";
+  children: React.ReactNode;
+}) {
+  const styles = {
+    info: "border-[#22d3ee]/25 bg-[#22d3ee]/10 text-[#a5f3fc]",
+    success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    error: "border-red-500/30 bg-red-500/10 text-red-300",
+  }[kind];
+  return (
+    <div className={`mt-3.5 rounded-xl border px-3.5 py-3 text-sm ${styles}`}>
+      {children}
+    </div>
+  );
+}
+
+function Instructions() {
+  return (
+    <div className="mt-5 rounded-2xl border border-[#22d3ee]/20 bg-gradient-to-br from-[#22d3ee]/5 to-[#3b82f6]/[0.07] p-5">
+      <h3 className="m-0 mb-3 flex items-center gap-2 text-[15px] font-semibold text-[#22d3ee]">
+        📶 Jinsi ya Kuunganisha
+      </h3>
+      <ol className="m-0 list-decimal pl-5 text-[13px] leading-[1.8] text-[#8aa0c4]">
+        <li>Unganisha simu yako kwenye <strong className="text-white">SHIMBA WiFi</strong>.</li>
+        <li><strong className="text-white">Nunua vocha</strong> hapa juu kwa M-Pesa / Tigo / Airtel.</li>
+        <li>Subiri vocha ipatikane (au angalia SMS).</li>
+        <li>Bonyeza <strong className="text-white">Tumia Vocha</strong> kisha ingiza code yako.</li>
+        <li>Furahia internet ya kasi 🚀</li>
+      </ol>
+      <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-[#1f2a44] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8aa0c4]">
+        Mitandao:
+        <span className="rounded-full border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-200">M-Pesa</span>
+        <span className="rounded-full border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-200">Tigo Pesa</span>
+        <span className="rounded-full border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-200">Airtel Money</span>
+        <span className="rounded-full border border-[#22d3ee]/20 bg-[#22d3ee]/10 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-200">Halopesa</span>
+      </div>
     </div>
   );
 }
