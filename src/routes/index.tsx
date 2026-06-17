@@ -8,6 +8,7 @@ import {
   getPaymentStatus,
   payMongike,
   type PackageDef,
+  type VoucherStatusResponse,
 } from "@/lib/api";
 
 export const Route = createFileRoute("/")({
@@ -277,7 +278,7 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
 function UseTab({ prefill }: { prefill: string }) {
   const [code, setCode] = useState(prefill);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<VoucherStatusResponse | null>(null);
   const [msg, setMsg] = useState<{ kind: "info" | "error" | "success"; text: string } | null>(null);
 
   useEffect(() => {
@@ -332,13 +333,12 @@ function UseTab({ prefill }: { prefill: string }) {
         </button>
       </form>
 
-      {result && (result.status === "valid" || result.valid === true) && (
-        <a
-          href="http://192.168.88.1/login"
-          className="mt-3 block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)]"
-        >
-          Ingia kwenye WiFi →
-        </a>
+      {result && (result.status === "valid" || result.valid === true) && (            <a
+              href={`http://192.168.88.1/login?username=${encodeURIComponent(code.trim())}&password=${encodeURIComponent(code.trim())}`}
+              className="mt-3 block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)]"
+            >
+              Ingia kwenye WiFi →
+            </a>
       )}
 
       {msg && <Message kind={msg.kind}>{msg.text}</Message>}

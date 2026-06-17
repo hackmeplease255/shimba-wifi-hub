@@ -1,6 +1,22 @@
-export const API_URL =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  "http://fi5.bot-hosting.net:22896";
+// ⚠️ Set VITE_API_URL in .env or Vercel env vars to override this default
+// In production (Vercel), we proxy through /api/proxy/ to avoid mixed content (HTTPS→HTTP)
+// In development, use direct URL
+const PROXY_PREFIX = "/api/proxy";
+const DIRECT_API_URL = "http://fi5.bot-hosting.net:22896";
+
+const userApiUrl = import.meta.env.VITE_API_URL as string | undefined;
+
+// On Vercel (production), use the proxy to avoid mixed-content errors
+// On localhost, use the direct URL
+function detectApiUrl(): string {
+  if (userApiUrl) return userApiUrl;
+  if (typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1")) {
+    return PROXY_PREFIX;
+  }
+  return DIRECT_API_URL;
+}
+
+export const API_URL = detectApiUrl();
 
 export interface PackageDef {
   id: string; // backend key: 6hours | 24hours | 48hours | 7days
@@ -100,9 +116,25 @@ export async function getPaymentStatus(ref: string): Promise<PaymentStatus> {
   return (await jsonOrText(res)) as PaymentStatus;
 }
 
-export async function checkVoucher(code: string): Promise<any> {
+export interface VoucherStatusResponse {
+  success: boolean;
+  status?: string;       // "valid" | "used" | "expired" | "issued"
+  message?: string;
+  voucher?: {
+    code: string;
+    synced: boolean;
+    synced_at: string | null;
+    package_name: string;
+    mikrotik_profile: string;
+    status: string;
+    sms_sent: boolean;
+  };
+  [k: string]: unknown;
+}
+
+export async function checkVoucher(code: string): Promise<VoucherStatusResponse> {
   const res = await fetch(`${API_URL}/api/voucher-status/${encodeURIComponent(code)}`);
-  return await jsonOrText(res);
+  return (await jsonOrText(res)) as VoucherStatusResponse;
 }
 
 export function formatTzs(n: number): string {
