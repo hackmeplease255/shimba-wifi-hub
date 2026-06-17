@@ -158,7 +158,7 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
     }
     setLoading(true);
     try {
-      const r = await payMongike({ phone: np, amount: pkg.price, package: pkg.id });
+      const r = await payMongike({ phone: np, package_name: pkg.id });
       const ref = extractReference(r);
       if (!ref) throw new Error("Hakuna order reference kutoka kwa server.");
       setMsg({
