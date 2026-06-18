@@ -9,8 +9,26 @@ const userApiUrl = import.meta.env.VITE_API_URL as string | undefined;
 // On Vercel (production), use the proxy to avoid mixed-content errors
 // On localhost, use the direct URL
 function detectApiUrl(): string {
-  if (userApiUrl) return userApiUrl;
-  if (typeof window !== "undefined" && !window.location.hostname.includes("localhost") && !window.location.hostname.includes("127.0.0.1")) {
+  if (userApiUrl) {
+    // If the page is served over HTTPS but VITE_API_URL is HTTP,
+    // browsers block the request (mixed content). Use the Vercel proxy instead.
+    if (
+      typeof window !== "undefined" &&
+      window.location.protocol === "https:" &&
+      !userApiUrl.startsWith("https:")
+    ) {
+      console.warn(
+        `[API] VITE_API_URL is HTTP but page is HTTPS — using proxy to avoid mixed-content block`
+      );
+      return PROXY_PREFIX;
+    }
+    return userApiUrl;
+  }
+  if (
+    typeof window !== "undefined" &&
+    !window.location.hostname.includes("localhost") &&
+    !window.location.hostname.includes("127.0.0.1")
+  ) {
     return PROXY_PREFIX;
   }
   return DIRECT_API_URL;
