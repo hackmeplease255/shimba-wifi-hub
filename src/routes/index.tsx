@@ -185,15 +185,15 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
         } catch {
           /* keep polling */
         }
-        if (attempts > 40) {
+        if (attempts > 30) {
           if (pollTimer.current) window.clearInterval(pollTimer.current);
           setLoading(false);
           setMsg({
-            kind: "error",
-            text: "Muda umeisha. Kama umelipa, ingia kwenye Tumia Vocha ukiwa na code uliyopata kwa SMS.",
+            kind: "info",
+            text: "Kama umeshathibitisha PIN, bofya 'Tumia Vocha' hapa juu ukiwa na code uliyopata.",
           });
         }
-      }, 4000);
+      }, 2000);
     } catch (err: any) {
       setLoading(false);
       setMsg({ kind: "error", text: err?.message || "Kuna tatizo. Jaribu tena." });
