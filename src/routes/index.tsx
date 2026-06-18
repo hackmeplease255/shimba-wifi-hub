@@ -154,7 +154,7 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
     if (!pkg) return;
     const np = normalizePhone(phone);
     if (np.length < 12) {
-      setMsg({ kind: "error", text: "Tafadhali weka namba sahihi ya simu (mfano 0712345678)." });
+      setMsg({ kind: "error", text: "Tafadhali weka namba sahihi ya simu (mfano 07xxxxxxxx)." });
       return;
     }
     setLoading(true);
@@ -258,7 +258,7 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
             className={inputClass}
             type="tel"
             inputMode="tel"
-            placeholder="0712 345 678"
+            placeholder="07xxxxxx au 06xxxxxx"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             disabled={loading}
@@ -324,7 +324,7 @@ function UseTab({ prefill }: { prefill: string }) {
           className={`${inputClass} text-center font-mono tracking-widest`}
           type="text"
           autoCapitalize="characters"
-          placeholder="ABCD1234"
+          placeholder="" 
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
         />
