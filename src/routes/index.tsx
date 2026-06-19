@@ -12,6 +12,9 @@ import {
   type VoucherStatusResponse,
 } from "@/lib/api";
 
+// How often frontend polls for voucher status (ms)
+const POLL_INTERVAL = 2_000;
+
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
@@ -168,6 +171,8 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
         text: "Ombi la malipo limetumwa. Angalia simu yako na thibitisha PIN. Tunasubiri...",
       });
       let attempts = 0;
+      // Poll for voucher every POLL_INTERVAL.
+      // Voucher arrives via: Mongike webhook (~30s) OR auto-complete (45s)
       pollTimer.current = window.setInterval(async () => {
         attempts++;
         try {
@@ -186,15 +191,16 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
         } catch {
           /* keep polling */
         }
-        if (attempts > 30) {
+        // Stop polling after 90 seconds (45 attempts × 2s)
+        if (attempts > 45) {
           if (pollTimer.current) window.clearInterval(pollTimer.current);
           setLoading(false);
           setMsg({
             kind: "info",
-            text: "Kama umeshathibitisha PIN, bofya 'Tumia Vocha' hapa juu ukiwa na code uliyopata.",
+            text: "Malipo hayajakamilika. Nenda kwenye 'Tumia Vocha' ukiwa na code uliyopata SMS au jaribu tena.",
           });
         }
-      }, 2000);
+      }, POLL_INTERVAL);
     } catch (err: any) {
       setLoading(false);
       setMsg({ kind: "error", text: err?.message || "Kuna tatizo. Jaribu tena." });
