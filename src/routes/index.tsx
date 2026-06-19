@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
+  API_URL,
   checkVoucher,
   extractReference,
   formatTzs,
@@ -275,6 +276,10 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
   );
 }
 
+function getConnectUrl(code: string): string {
+  return API_URL + "/api/connect?code=" + encodeURIComponent(code.trim());
+}
+
 function UseTab({ prefill }: { prefill: string }) {
   const [code, setCode] = useState(prefill);
   const [loading, setLoading] = useState(false);
@@ -299,9 +304,13 @@ function UseTab({ prefill }: { prefill: string }) {
       const r = await checkVoucher(c);
       setResult(r);
       if (r?.status === "valid" || r?.valid === true || r?.success === true) {
-        setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
+        if (r.voucher?.synced) {
+          setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
+        } else {
+          setMsg({ kind: "info", text: "Vocha imepatikana. Inasubiri kuandaliwa kwenye router..." });
+        }
       } else if (r?.status === "used") {
-        setMsg({ kind: "info", text: "Vocha hii tayari imetumika." });
+        setMsg({ kind: "info", text: "Vocha hii tayari imetumika. Fungua SIMU yako WiFi na uunganishe tena." });
       } else {
         setMsg({ kind: "error", text: r?.message || "Vocha haijapatikana au imeisha." });
       }
@@ -311,6 +320,9 @@ function UseTab({ prefill }: { prefill: string }) {
       setLoading(false);
     }
   }
+
+  const isSynced = result?.voucher?.synced === true;
+  const isUsed = result?.status === "used";
 
   return (
     <Card>
@@ -324,7 +336,7 @@ function UseTab({ prefill }: { prefill: string }) {
           className={`${inputClass} text-center font-mono tracking-widest`}
           type="text"
           autoCapitalize="characters"
-          placeholder="" 
+          placeholder=""
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
         />
@@ -333,12 +345,29 @@ function UseTab({ prefill }: { prefill: string }) {
         </button>
       </form>
 
-      {result && (result.status === "valid" || result.valid === true) && (            <a
-              href={`http://192.168.88.1/login?username=${encodeURIComponent(code.trim())}&password=${encodeURIComponent(code.trim())}`}
-              className="mt-3 block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)]"
+      {result && (result.status === "valid" || result.valid === true) && !isUsed && (
+        <div className="mt-3 space-y-2">
+          {isSynced ? (
+            <a
+              href={getConnectUrl(code)}
+              className="block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)]"
             >
               Ingia kwenye WiFi →
             </a>
+          ) : (
+            <>
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-300">
+                ⏳ Vocha inaandaliwa kwenye router... Jaribu tena baada ya sekunde chache
+              </div>
+              <button
+                onClick={handleCheck}
+                className="block w-full rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 px-4 py-3 text-center text-sm font-bold text-white shadow"
+              >
+                Angalia Tena
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       {msg && <Message kind={msg.kind}>{msg.text}</Message>}
