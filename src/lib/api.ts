@@ -2,7 +2,7 @@
 // In production (Vercel), we proxy through /api/proxy/ to avoid mixed content (HTTPS→HTTP)
 // In development, use direct URL
 const PROXY_PREFIX = "/api/proxy";
-const DIRECT_API_URL = "http://fi5.bot-hosting.net:22896";
+const DIRECT_API_URL = "https://shimbawifi.xyz";
 
 const userApiUrl = import.meta.env.VITE_API_URL as string | undefined;
 
