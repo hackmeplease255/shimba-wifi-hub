@@ -170,11 +170,10 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
         kind: "info",
         text: "Ombi la malipo limetumwa. Angalia simu yako na thibitisha PIN. Tunasubiri...",
       });
-      let attempts = 0;
       // Poll for voucher every POLL_INTERVAL.
-      // Voucher arrives via: Mongike webhook (~30s) OR auto-complete (45s)
+      // Voucher is issued by Mongike webhook when payment is confirmed.
+      // Frontend waits until voucher code appears in the response.
       pollTimer.current = window.setInterval(async () => {
-        attempts++;
         try {
           const s = await getPaymentStatus(ref);
           const code = s.voucherCode || s.voucher || s.voucher_code;
@@ -190,15 +189,6 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
           }
         } catch {
           /* keep polling */
-        }
-        // Stop polling after 90 seconds (45 attempts × 2s)
-        if (attempts > 45) {
-          if (pollTimer.current) window.clearInterval(pollTimer.current);
-          setLoading(false);
-          setMsg({
-            kind: "info",
-            text: "Malipo hayajakamilika. Nenda kwenye 'Tumia Vocha' ukiwa na code uliyopata SMS au jaribu tena.",
-          });
         }
       }, POLL_INTERVAL);
     } catch (err: any) {
