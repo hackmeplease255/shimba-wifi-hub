@@ -226,12 +226,12 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
           >
             {voucher}
           </button>
-          <button
-            onClick={() => onGotVoucher(voucher)}
-            className={btnClass}
+          <a
+            href={getConnectUrl(voucher)}
+            className={btnClass.replace('mt-4', 'mt-3')}
           >
-            Tumia Sasa
-          </button>
+            Ingia kwenye WiFi →
+          </a>
         </div>
       ) : (
         <form onSubmit={handlePay}>
@@ -281,34 +281,41 @@ function UseTab({ prefill }: { prefill: string }) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<VoucherStatusResponse | null>(null);
   const [msg, setMsg] = useState<{ kind: "info" | "error" | "success"; text: string } | null>(null);
+  const debounceRef = useRef<number | null>(null);
 
+  // Auto-check voucher when prefill changes (after payment)
   useEffect(() => {
-    if (prefill) setCode(prefill);
+    if (prefill) {
+      setCode(prefill);
+      doCheck(prefill);
+    }
   }, [prefill]);
 
-  async function handleCheck(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg(null);
-    setResult(null);
+  // Auto-check when user types (debounced 600ms)
+  useEffect(() => {
     const c = code.trim();
-    if (!c) {
-      setMsg({ kind: "error", text: "Weka voucher code." });
-      return;
-    }
+    if (!c || c === prefill) return;
+    if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    debounceRef.current = window.setTimeout(() => doCheck(c), 600);
+    return () => {
+      if (debounceRef.current) window.clearTimeout(debounceRef.current);
+    };
+  }, [code]);
+
+  async function doCheck(c: string) {
+    if (!c) return;
+    setMsg(null);
     setLoading(true);
     try {
       const r = await checkVoucher(c);
       setResult(r);
       if (r?.status === "valid" || r?.valid === true || r?.success === true) {
-        if (r.voucher?.synced) {
-          setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
-        } else {
-          setMsg({ kind: "info", text: "Vocha imepatikana. Inasubiri kuandaliwa kwenye router..." });
-        }
+        setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
       } else if (r?.status === "used") {
         setMsg({ kind: "info", text: "Vocha hii tayari imetumika. Fungua SIMU yako WiFi na uunganishe tena." });
       } else {
         setMsg({ kind: "error", text: r?.message || "Vocha haijapatikana au imeisha." });
+        setResult(null);
       }
     } catch (err: any) {
       setMsg({ kind: "error", text: err?.message || "Tatizo kuangalia vocha." });
@@ -325,20 +332,21 @@ function UseTab({ prefill }: { prefill: string }) {
       <p className="mb-4 mt-1 text-sm text-[#8aa0c4]">
         Weka voucher code yako uliyopata kupitia SMS au baada ya malipo.
       </p>
-      <form onSubmit={handleCheck}>
+      <div>
         <Label>Voucher Code</Label>
         <input
           className={`${inputClass} text-center font-mono tracking-widest`}
           type="text"
           autoCapitalize="characters"
-          placeholder=""
+          placeholder="Weka code yako hapa"
           value={code}
           onChange={(e) => setCode(e.target.value.toUpperCase())}
         />
-        <button type="submit" className={btnClass} disabled={loading}>
-          {loading ? "Inakagua..." : "Angalia Vocha"}
-        </button>
-      </form>
+      </div>
+
+      {loading && !result && (
+        <div className="mt-3 text-center text-sm text-[#8aa0c4]">Inakagua vocha...</div>
+      )}
 
       {result && (result.status === "valid" || result.valid === true) && !isUsed && (
         <div className="mt-3">
