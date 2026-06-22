@@ -317,7 +317,6 @@ function UseTab({ prefill }: { prefill: string }) {
     }
   }
 
-  const isSynced = result?.voucher?.synced === true;
   const isUsed = result?.status === "used";
 
   return (
@@ -342,27 +341,13 @@ function UseTab({ prefill }: { prefill: string }) {
       </form>
 
       {result && (result.status === "valid" || result.valid === true) && !isUsed && (
-        <div className="mt-3 space-y-2">
-          {isSynced ? (
-            <a
-              href={getConnectUrl(code)}
-              className="block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)]"
-            >
-              Ingia kwenye WiFi →
-            </a>
-          ) : (
-            <>
-              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3.5 py-3 text-sm text-amber-300">
-                ⏳ Vocha inaandaliwa kwenye router... Jaribu tena baada ya sekunde chache
-              </div>
-              <button
-                onClick={handleCheck}
-                className="block w-full rounded-2xl bg-gradient-to-br from-cyan-500 to-blue-600 px-4 py-3 text-center text-sm font-bold text-white shadow"
-              >
-                Angalia Tena
-              </button>
-            </>
-          )}
+        <div className="mt-3">
+          <a
+            href={getConnectUrl(code)}
+            className="block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)] transition hover:brightness-110 active:translate-y-px"
+          >
+            Ingia kwenye WiFi →
+          </a>
         </div>
       )}
 
