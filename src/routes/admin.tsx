@@ -276,8 +276,8 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
             ) : (
               <form onSubmit={handleCreateVoucher} className="space-y-4">
                 <div>
-                  <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Namba ya Simu ya Mteja</label>
-                  <input className="w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="tel" value={createPhone} onChange={(e) => setCreatePhone(e.target.value)} placeholder="0655943793" autoFocus />
+                  <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Namba ya Simu (si lazima)</label>
+                  <input className="w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="tel" value={createPhone} onChange={(e) => setCreatePhone(e.target.value)} placeholder="Acha tupu ukitengeneza vocha kwa cash" />
                 </div>
                 <div>
                   <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Kifurushi</label>
@@ -287,7 +287,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                     ))}
                   </select>
                 </div>
-                <button type="submit" disabled={createLoading || !createPhone}
+                <button type="submit" disabled={createLoading}
                   className="w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-3.5 text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)] transition active:translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {createLoading ? "Inatengeneza..." : "✅ Tengeneza Vocha"}
