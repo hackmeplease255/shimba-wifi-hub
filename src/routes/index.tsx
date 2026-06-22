@@ -14,7 +14,7 @@ import {
 
 // How often frontend polls for voucher status (ms)
 const POLL_INTERVAL = 2_000;
-const PAYMENT_TIMEOUT_MS = 35_000; // 35 seconds before showing timeout message
+const PAYMENT_TIMEOUT_MS = 60_000; // 60 seconds before showing timeout message
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -178,13 +178,13 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
       // Frontend waits until voucher code appears in the response.
       pollTimer.current = window.setInterval(async () => {
         try {
-          // Timeout after 35 seconds
+          // Timeout after 60 seconds
           if (Date.now() - pollStarted > PAYMENT_TIMEOUT_MS) {
             if (pollTimer.current) window.clearInterval(pollTimer.current);
             setLoading(false);
             setMsg({
               kind: "info",
-              text: "Malipo hayajakamilika. Kama umeshathibitisha PIN, subiri au jaribu tena.",
+              text: "Malipo hayajakamilika. Jaribu tena au angalia kama umeingiza PIN kwenye simu yako.",
             });
             return;
           }
