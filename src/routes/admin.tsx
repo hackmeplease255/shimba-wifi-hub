@@ -143,11 +143,21 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [createLoading, setCreateLoading] = useState(false);
   const [createResult, setCreateResult] = useState<any>(null);
 
+  async function checkAuth(res: Response) {
+    if (res.status === 401) {
+      sessionStorage.removeItem("admin_token");
+      window.location.reload();
+      return false;
+    }
+    return true;
+  }
+
   async function fetchStats() {
     try {
       const res = await fetch(`${API_URL}/api/admin/stats`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!(await checkAuth(res))) return;
       const data = await res.json();
       if (data.success) setStats(data);
     } catch { /* ignore */ }
@@ -158,6 +168,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
       const res = await fetch(`${API_URL}/api/admin/orders?limit=20`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      if (!(await checkAuth(res))) return;
       const data = await res.json();
       if (data.success) setOrders(data.orders || []);
     } catch { /* ignore */ }
@@ -177,6 +188,47 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
         },
         body: JSON.stringify({ phone: createPhone, package_name: createPkg }),
       });
+      const data = await res.json();
+      if (data.success) {
+        setCreateResult(data);
+        setMsg({ kind: "success", text: `Vocha ${data.voucher_code} imetengenezwa!` });
+        setCreatePhone("");
+        fetchStats();
+      } else {
+        setMsg({ kind: "error", text: data.message || "Imeshindikana" });
+      }
+    } catch (err: any) {
+      setMsg({ kind: "error", text: err?.message || "Tatizo la mtandao" });
+    } finally {
+      setCreateLoading(false);
+    }
+  }
+
+  async function checkAuth(res: Response) {
+    if (res.status === 401) {
+      sessionStorage.removeItem("admin_token");
+      window.location.reload();
+      return false;
+    }
+    return true;
+  }
+
+  // Handle 401 on create-voucher too
+  async function handleCreateVoucherAuth(e: React.FormEvent) {
+    e.preventDefault();
+    setMsg(null);
+    setCreateResult(null);
+    setCreateLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/create-voucher`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ phone: createPhone, package_name: createPkg }),
+      });
+      if (!(await checkAuth(res))) return;
       const data = await res.json();
       if (data.success) {
         setCreateResult(data);
@@ -302,7 +354,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                 </button>
               </div>
             ) : (
-              <form onSubmit={handleCreateVoucher} className="space-y-4">
+              <form onSubmit={handleCreateVoucherAuth} className="space-y-4">
                 <div>
                   <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">
                     Namba ya Simu ya Mteja
