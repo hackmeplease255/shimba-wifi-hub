@@ -14,6 +14,7 @@ import {
 
 // How often frontend polls for voucher status (ms)
 const POLL_INTERVAL = 2_000;
+const PAYMENT_TIMEOUT_MS = 35_000; // 35 seconds before showing timeout message
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -170,11 +171,24 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
         kind: "info",
         text: "Ombi la malipo limetumwa. Angalia simu yako na thibitisha PIN. Tunasubiri...",
       });
+      const pollStarted = Date.now();
+
       // Poll for voucher every POLL_INTERVAL.
       // Voucher is issued by Mongike webhook when payment is confirmed.
       // Frontend waits until voucher code appears in the response.
       pollTimer.current = window.setInterval(async () => {
         try {
+          // Timeout after 35 seconds
+          if (Date.now() - pollStarted > PAYMENT_TIMEOUT_MS) {
+            if (pollTimer.current) window.clearInterval(pollTimer.current);
+            setLoading(false);
+            setMsg({
+              kind: "info",
+              text: "Malipo hayajakamilika. Kama umeshathibitisha PIN, subiri au jaribu tena.",
+            });
+            return;
+          }
+
           const s = await getPaymentStatus(ref);
           const code = s.voucherCode || s.voucher || s.voucher_code;
           if (code) {
@@ -222,16 +236,16 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
           <div className="mb-2 text-[11px] uppercase tracking-[2px] text-[#8aa0c4]">Voucher Code</div>
           <button
             onClick={copyVoucher}
-            className="w-full rounded-2xl border border-[#22d3ee]/30 bg-[#000d1a] px-4 py-3.5 font-mono text-2xl font-bold tracking-widest text-[#22d3ee]"
+            className="w-full rounded-2xl border border-[#22d3ee]/30 bg-[#000d1a] px-4 py-3.5 font-mono text-2xl font-bold tracking-widest text-[#22d3ee] cursor-pointer"
           >
             {voucher}
           </button>
-          <a
-            href={getConnectUrl(voucher)}
-            className={btnClass.replace('mt-4', 'mt-3')}
+          <button
+            onClick={() => onGotVoucher(voucher)}
+            className="mt-3 w-full cursor-pointer rounded-2xl bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] px-4 py-4 text-base font-extrabold text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.4)] transition active:translate-y-px"
           >
-            Ingia kwenye WiFi →
-          </a>
+            Tumia Vocha
+          </button>
         </div>
       ) : (
         <form onSubmit={handlePay}>
