@@ -182,9 +182,17 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
           if (Date.now() - pollStarted > PAYMENT_TIMEOUT_MS) {
             if (pollTimer.current) window.clearInterval(pollTimer.current);
             setLoading(false);
+            // Cancel the order in the backend
+            try {
+              await fetch(API_URL + "/api/cancel-order", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ order_reference: ref }),
+              });
+            } catch { /* ignore network errors */ }
             setMsg({
-              kind: "info",
-              text: "Malipo hayajakamilika. Jaribu tena au angalia kama umeingiza PIN kwenye simu yako.",
+              kind: "error",
+              text: "Malipo hayajakamilika ndani ya muda uliotengwa. Tafadhali fanya malipo ili kuendelea na huduma.",
             });
             return;
           }
@@ -326,7 +334,8 @@ function UseTab({ prefill }: { prefill: string }) {
       if (r?.status === "valid" || r?.valid === true || r?.success === true) {
         setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
       } else if (r?.status === "used") {
-        setMsg({ kind: "info", text: "Vocha hii tayari imetumika. Fungua SIMU yako WiFi na uunganishe tena." });
+        setMsg({ kind: "error", text: "Vocha hii tayari imetumika. Nunua vocha mpya kuendelea na huduma." });
+        setResult(null);
       } else {
         setMsg({ kind: "error", text: r?.message || "Vocha haijapatikana au imeisha." });
         setResult(null);
