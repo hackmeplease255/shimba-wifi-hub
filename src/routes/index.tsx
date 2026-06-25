@@ -332,7 +332,7 @@ function UseTab({ prefill }: { prefill: string }) {
       const r = await checkVoucher(c);
       setResult(r);
       if (r?.status === "valid" || r?.valid === true || r?.success === true) {
-        setMsg({ kind: "success", text: "Vocha ni halali. Bonyeza 'Ingia kwenye WiFi'." });
+        setMsg({ kind: "success", text: "Vocha ni halali!" });
       } else if (r?.status === "used") {
         setMsg({ kind: "error", text: "Vocha hii tayari imetumika. Nunua vocha mpya kuendelea na huduma." });
         setResult(null);
@@ -347,7 +347,17 @@ function UseTab({ prefill }: { prefill: string }) {
     }
   }
 
-  const isUsed = result?.status === "used";
+  async function copyCode() {
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setMsg({ kind: "success", text: "Vocha imenakiliwa!" });
+    } catch {
+      /* noop */
+    }
+  }
+
+  const isValid = result && (result.status === "valid" || result.valid === true);
 
   return (
     <Card>
@@ -371,13 +381,61 @@ function UseTab({ prefill }: { prefill: string }) {
         <div className="mt-3 text-center text-sm text-[#8aa0c4]">Inakagua vocha...</div>
       )}
 
-      {result && (result.status === "valid" || result.valid === true) && !isUsed && (
-        <div className="mt-3">
+      {isValid && (
+        <div className="mt-5 space-y-3">
+          {/* Primary connect button - opens connect page in new tab */}
           <a
             href={getConnectUrl(code)}
-            className="block w-full rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.4)] transition hover:brightness-110 active:translate-y-px"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 hover:shadow-[0_14px_35px_-12px_rgba(16,185,129,0.6)] active:translate-y-px"
           >
-            Ingia kwenye WiFi →
+            📶 Ingia kwenye WiFi
+          </a>
+
+          {/* Voucher code display with copy button */}
+          <div className="rounded-xl border border-[#1f2a44] bg-[#0a1426]/70 p-4">
+            <div className="mb-2 text-center text-[11px] uppercase tracking-[2px] text-[#8aa0c4]">
+              Voucher Code Yako
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex-1 rounded-xl border border-[#22d3ee]/20 bg-[#000d1a] px-4 py-3 font-mono text-xl font-bold tracking-[6px] text-[#22d3ee] text-center">
+                {code}
+              </div>
+              <button
+                onClick={copyCode}
+                className="flex h-[48px] w-[48px] shrink-0 items-center justify-center rounded-xl border border-[#22d3ee]/30 bg-[#000d1a] text-lg transition hover:bg-[#22d3ee]/10 active:scale-95"
+                title="Nakili code"
+              >
+                📋
+              </button>
+            </div>
+          </div>
+
+          {/* Manual connection instructions */}
+          <details className="rounded-xl border border-[#1f2a44] bg-[#0e1626]/50">
+            <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-[#8aa0c4] transition hover:text-white">
+              🔧 Unganisha manually
+            </summary>
+            <div className="border-t border-[#1f2a44] px-4 py-3 text-[13px] text-[#8aa0c4] space-y-2">
+              <p><strong className="text-white">Hatua 1:</strong> Unganisha simu yako kwenye mtandao wa <strong className="text-white">SHIMBA WiFi</strong>.</p>
+              <p><strong className="text-white">Hatua 2:</strong> Fungua browser yako, utaelekezwa kwenye ukurasa wa login.</p>
+              <p><strong className="text-white">Hatua 3:</strong> Weka code hii kama <strong className="text-white">Username</strong> na <strong className="text-white">Password</strong>:</p>
+              <div className="rounded-lg border border-[#22d3ee]/20 bg-[#000d1a] p-3 font-mono text-center text-lg font-bold tracking-[4px] text-[#22d3ee]">
+                {code}
+              </div>
+              <p><strong className="text-white">Hatua 4:</strong> Bonyeza <strong className="text-white">Log In</strong> na uanze kutumia internet 🚀</p>
+            </div>
+          </details>
+
+          {/* Direct MikroTik login link */}
+          <a
+            href={"http://192.168.88.1/login"}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full rounded-2xl border border-[#22d3ee]/30 bg-[#0a1426] px-4 py-3.5 text-center text-sm font-bold text-[#22d3ee] transition hover:bg-[#22d3ee]/10 active:translate-y-px"
+          >
+            Fungua ukurasa wa login → 
           </a>
         </div>
       )}
@@ -417,6 +475,7 @@ function Instructions() {
         <li><strong className="text-white">Nunua vocha</strong> hapa juu kwa M-Pesa / Tigo / Airtel.</li>
         <li>Subiri vocha ipatikane (au angalia SMS).</li>
         <li>Bonyeza <strong className="text-white">Tumia Vocha</strong> kisha ingiza code yako.</li>
+        <li>Bonyeza <strong className="text-white">📶 Ingia kwenye WiFi</strong> kuunganisha moja kwa moja.</li>
         <li>Furahia internet ya kasi 🚀</li>
       </ol>
       <div className="mt-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-[#1f2a44] bg-white/[0.03] px-3 py-2.5 text-xs text-[#8aa0c4]">
