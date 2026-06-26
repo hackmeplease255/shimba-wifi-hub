@@ -1,21 +1,9 @@
-// ⚠️ Set VITE_API_URL in .env or Vercel env vars to override this default
-// On production, we use the API URL directly since both frontend (Vercel)
-// and backend (shimbawifi.xyz) are served over HTTPS (no mixed content).
-const DIRECT_API_URL = "https://shimbawifi.xyz";
-
-const userApiUrl = import.meta.env.VITE_API_URL as string | undefined;
-
-function detectApiUrl(): string {
-  if (userApiUrl) {
-    return userApiUrl;
-  }
-  // For all environments (both production and local), use the direct URL.
-  // Both frontend (HTTPS on Vercel) and backend (HTTPS on shimbawifi.xyz)
-  // are secure — no mixed content issues.
-  return DIRECT_API_URL;
-}
-
-export const API_URL = detectApiUrl();
+// API URL for the SHIMBA WiFi backend.
+// Uses direct URL since both frontend (HTTPS on Vercel) and backend
+// (HTTPS on shimbawifi.xyz) are secure — no mixed content issues.
+// NOTE: VITE_API_URL env var is intentionally NOT read here because
+// Vercel's proxy (/api/proxy/) is broken (returns 404).
+export const API_URL = "https://shimbawifi.xyz";
 
 export interface PackageDef {
   id: string; // backend key: 6hours | 24hours | 48hours | 7days

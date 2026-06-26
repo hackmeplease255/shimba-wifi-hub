@@ -3,11 +3,5 @@
   "buildCommand": "vite build",
   "outputDirectory": ".vercel/output",
   "framework": null,
-  "installCommand": "bun install",
-  "rewrites": [
-    {
-      "source": "/api/proxy/:path*",
-      "destination": "https://shimbawifi.xyz/:path*"
-    }
-  ]
+  "installCommand": "bun install"
 }
