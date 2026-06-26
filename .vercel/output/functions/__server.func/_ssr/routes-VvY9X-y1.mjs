@@ -1,7 +1,7 @@
 import { r as __toESM } from "../_runtime.mjs";
-import { a as getPackages, i as formatTzs, n as checkVoucher, o as getPaymentStatus, r as extractReference, s as payMongike, t as API_URL } from "./api-DDmwNao-.mjs";
+import { a as getPackages, i as formatTzs, n as checkVoucher, o as getPaymentStatus, r as extractReference, s as payMongike, t as API_URL } from "./api-B9EKBMtk.mjs";
 import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tanstack__react-query.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/routes-C9Qdol5T.js
+//#region node_modules/.nitro/vite/services/ssr/assets/routes-VvY9X-y1.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 var POLL_INTERVAL = 2e3;
@@ -294,13 +294,13 @@ function UseTab({ prefill }) {
 			else if (r?.status === "used") {
 				setMsg({
 					kind: "error",
-					text: "Vocha hii tayari imetumika. Nunua vocha mpya kuendelea na huduma."
+					text: "Code iliyo ingiza imeshatumika tafadhali nunua vocha."
 				});
 				setResult(null);
 			} else {
 				setMsg({
 					kind: "error",
-					text: r?.message || "Vocha haijapatikana au imeisha."
+					text: "Code uliyoingiza sio sahihi tafadhali ingia kwenye tab ya kununua vocha na ununue vocha."
 				});
 				setResult(null);
 			}

@@ -1,7 +1,7 @@
 import { r as __toESM } from "../_runtime.mjs";
-import { i as formatTzs, t as API_URL } from "./api-DDmwNao-.mjs";
+import { i as formatTzs, t as API_URL } from "./api-B9EKBMtk.mjs";
 import { n as require_jsx_runtime, r as require_react } from "../_libs/react+tanstack__react-query.mjs";
-//#region node_modules/.nitro/vite/services/ssr/assets/admin-BrNPzA6F.js
+//#region node_modules/.nitro/vite/services/ssr/assets/admin-B_U1JpYG.js
 var import_react = /* @__PURE__ */ __toESM(require_react());
 var import_jsx_runtime = require_jsx_runtime();
 function AdminPage() {
@@ -24,10 +24,14 @@ function AdminPage() {
 		setLoginLoading(true);
 		try {
 			const basic = btoa(`${username}:${password}`);
-			const data = await (await fetch(`${API_URL}/api/admin/login`, {
+			const text = await (await fetch(`${API_URL}/api/admin/login`, {
 				method: "POST",
 				headers: { Authorization: `Basic ${basic}` }
-			})).json();
+			})).text();
+			let data = { message: text };
+			try {
+				data = text ? JSON.parse(text) : {};
+			} catch {}
 			if (data.success && data.token) {
 				sessionStorage.setItem("admin_token", data.token);
 				setToken(data.token);

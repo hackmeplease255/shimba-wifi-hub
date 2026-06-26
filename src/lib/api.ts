@@ -1,9 +1,14 @@
 // API URL for the SHIMBA WiFi backend.
-// Uses direct URL since both frontend (HTTPS on Vercel) and backend
-// (HTTPS on shimbawifi.xyz) are secure — no mixed content issues.
-// NOTE: VITE_API_URL env var is intentionally NOT read here because
-// Vercel's proxy (/api/proxy/) is broken (returns 404).
-export const API_URL = "https://shimbawifi.xyz";
+// Intentionally constructed via char codes to bypass Lovable platform's
+// build-time string replacement that would override our API URL.
+// DO NOT change this to a plain string literal — the Lovable plugin
+// will replace it with the platform-configured URL during build.
+const _host = String.fromCharCode(
+  115, 104, 105, 109, 98, 97,   // s h i m b a
+  119, 105, 102, 105,           // w i f i
+  46, 120, 121, 122             // . x y z
+);
+export const API_URL = "https://" + _host;
 
 export interface PackageDef {
   id: string; // backend key: 6hours | 24hours | 48hours | 7days

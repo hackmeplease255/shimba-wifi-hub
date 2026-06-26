@@ -1,14 +1,5 @@
-//#region node_modules/.nitro/vite/services/ssr/assets/api-DDmwNao-.js
-var PROXY_PREFIX = "/api/proxy";
-var userApiUrl = "http://fi5.bot-hosting.net:22896";
-function detectApiUrl() {
-	if (typeof window !== "undefined" && window.location.protocol === "https:" && !userApiUrl.startsWith("https:")) {
-		console.warn(`[API] VITE_API_URL is HTTP but page is HTTPS — using proxy to avoid mixed-content block`);
-		return PROXY_PREFIX;
-	}
-	return userApiUrl;
-}
-var API_URL = detectApiUrl();
+//#region node_modules/.nitro/vite/services/ssr/assets/api-B9EKBMtk.js
+var API_URL = "https://shimbawifi.xyz";
 var DEFAULT_PACKAGES = [
 	{
 		id: "6hours",
