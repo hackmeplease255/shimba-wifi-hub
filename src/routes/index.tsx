@@ -331,11 +331,13 @@ function UseTab({ prefill }: { prefill: string }) {
     try {
       const r = await checkVoucher(c);
       setResult(r);
-      if (r?.status === "valid" || r?.valid === true || r?.success === true) {
-        setMsg({ kind: "success", text: "Vocha ni halali!" });
-      } else if (r?.status === "used") {
+      // Order matters: check 'used' FIRST because backend returns
+      // { success: true, status: 'used' } — r?.success would match before 'used' check!
+      if (r?.status === "used") {
         setMsg({ kind: "error", text: "Code iliyo ingiza imeshatumika tafadhali nunua vocha." });
         setResult(null);
+      } else if (r?.status === "valid" || r?.valid === true || r?.success === true) {
+        setMsg({ kind: "success", text: "Vocha ni halali!" });
       } else {
         setMsg({ kind: "error", text: "Code uliyoingiza sio sahihi tafadhali ingia kwenye tab ya kununua vocha na ununue vocha." });
         setResult(null);
