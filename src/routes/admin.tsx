@@ -50,7 +50,9 @@ function AdminPage() {
         method: "POST",
         headers: { Authorization: `Basic ${basic}` },
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = { message: text };
+      try { data = text ? JSON.parse(text) : {}; } catch { /* not JSON — use text as message */ }
       if (data.success && data.token) {
         sessionStorage.setItem("admin_token", data.token);
         setToken(data.token);

@@ -337,7 +337,7 @@ function UseTab({ prefill }: { prefill: string }) {
         setMsg({ kind: "error", text: "Code iliyo ingiza imeshatumika tafadhali nunua vocha." });
         setResult(null);
       } else {
-        setMsg({ kind: "error", text: r?.message || "Code uliyoingiza sio sahihi tafadhali ingia kwenye tab ya kununua vocha na ununue vocha." });
+        setMsg({ kind: "error", text: "Code uliyoingiza sio sahihi tafadhali ingia kwenye tab ya kununua vocha na ununue vocha." });
         setResult(null);
       }
     } catch (err: any) {
