@@ -334,10 +334,10 @@ function UseTab({ prefill }: { prefill: string }) {
       if (r?.status === "valid" || r?.valid === true || r?.success === true) {
         setMsg({ kind: "success", text: "Vocha ni halali!" });
       } else if (r?.status === "used") {
-        setMsg({ kind: "error", text: "Vocha hii tayari imetumika. Nunua vocha mpya kuendelea na huduma." });
+        setMsg({ kind: "error", text: "Code iliyo ingiza imeshatumika tafadhali nunua vocha." });
         setResult(null);
       } else {
-        setMsg({ kind: "error", text: r?.message || "Vocha haijapatikana au imeisha." });
+        setMsg({ kind: "error", text: r?.message || "Code uliyoingiza sio sahihi tafadhali ingia kwenye tab ya kununua vocha na ununue vocha." });
         setResult(null);
       }
     } catch (err: any) {
