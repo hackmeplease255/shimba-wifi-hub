@@ -323,8 +323,17 @@ function BuyTab({ onGotVoucher }: { onGotVoucher: (code: string) => void }) {
   );
 }
 
+function getMacFromUrl(): string {
+  return new URLSearchParams(window.location.search).get("mac") || "";
+}
+
 function getConnectUrl(code: string): string {
-  return API_URL + "/api/connect?code=" + encodeURIComponent(code.trim());
+  let url = API_URL + "/api/connect?code=" + encodeURIComponent(code.trim());
+  const mac = getMacFromUrl();
+  if (mac) {
+    url += "&mac=" + encodeURIComponent(mac);
+  }
+  return url;
 }
 
 function UseTab({ prefill }: { prefill: string }) {
@@ -415,14 +424,19 @@ function UseTab({ prefill }: { prefill: string }) {
       {isValid && (
         <div className="mt-5 space-y-3">
           {/* Primary connect button - opens connect page in new tab */}
-          <a
-            href={getConnectUrl(code)}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            onClick={async () => {
+              // First associate MAC with voucher for auto-connect on return
+              const mac = getMacFromUrl();
+              if (mac) {
+                await associateMac(mac, code);
+              }
+              window.open(getConnectUrl(code), "_blank");
+            }}
             className="block w-full cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 hover:shadow-[0_14px_35px_-12px_rgba(16,185,129,0.6)] active:translate-y-px"
           >
             📶 Ingia kwenye WiFi
-          </a>
+          </button>
 
           {/* Voucher code display with copy button */}
           <div className="rounded-xl border border-[#1f2a44] bg-[#0a1426]/70 p-4">
