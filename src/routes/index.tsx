@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   API_URL,
+  associateMac,
   autoConnect,
   checkVoucher,
   extractReference,
@@ -431,7 +432,9 @@ function UseTab({ prefill }: { prefill: string }) {
               if (mac) {
                 await associateMac(mac, code);
               }
-              window.open(getConnectUrl(code), "_blank");
+              // Redirect current page to connect URL instead of opening new tab
+              // (window.open is often blocked by popup blockers)
+              window.location.href = getConnectUrl(code);
             }}
             className="block w-full cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 hover:shadow-[0_14px_35px_-12px_rgba(16,185,129,0.6)] active:translate-y-px"
           >
