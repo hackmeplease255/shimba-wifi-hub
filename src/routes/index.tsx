@@ -48,7 +48,8 @@ function PortalPage() {
       setConnecting("connecting");
       autoConnect(mac).then((r) => {
         if (r.auto && r.code) {
-          window.location.href = API_URL + "/api/connect?code=" + encodeURIComponent(r.code);
+          // Redirect langsung kwa MikroTik login
+          redirectToMikrotik(r.code);
         } else {
           setConnecting(null);
         }
@@ -328,13 +329,10 @@ function getMacFromUrl(): string {
   return new URLSearchParams(window.location.search).get("mac") || "";
 }
 
-function getConnectUrl(code: string): string {
-  let url = API_URL + "/api/connect?code=" + encodeURIComponent(code.trim());
-  const mac = getMacFromUrl();
-  if (mac) {
-    url += "&mac=" + encodeURIComponent(mac);
-  }
-  return url;
+/** Redirect langsung kwa MikroTik login (skip /api/connect) */
+function redirectToMikrotik(code: string): void {
+  const url = "http://192.168.88.1/login?username=" + encodeURIComponent(code.trim()) + "&password=" + encodeURIComponent(code.trim());
+  window.location.href = url;
 }
 
 function UseTab({ prefill }: { prefill: string }) {
@@ -424,7 +422,7 @@ function UseTab({ prefill }: { prefill: string }) {
 
       {isValid && (
         <div className="mt-5 space-y-3">
-          {/* Primary connect button - opens connect page in new tab */}
+          {/* Primary connect button - redirect langsung kwa MikroTik login */}
           <button
             onClick={async () => {
               // First associate MAC with voucher for auto-connect on return
@@ -432,9 +430,8 @@ function UseTab({ prefill }: { prefill: string }) {
               if (mac) {
                 await associateMac(mac, code);
               }
-              // Redirect current page to connect URL instead of opening new tab
-              // (window.open is often blocked by popup blockers)
-              window.location.href = getConnectUrl(code);
+              // Redirect langsung kwa MikroTik login na credentials
+              redirectToMikrotik(code);
             }}
             className="block w-full cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 hover:shadow-[0_14px_35px_-12px_rgba(16,185,129,0.6)] active:translate-y-px"
           >
@@ -476,9 +473,9 @@ function UseTab({ prefill }: { prefill: string }) {
             </div>
           </details>
 
-          {/* Direct MikroTik login link */}
+          {/* Direct MikroTik login link with credentials */}
           <a
-            href={"http://192.168.88.1/login"}
+            href={"http://192.168.88.1/login?username=" + encodeURIComponent(code.trim()) + "&password=" + encodeURIComponent(code.trim())}
             target="_blank"
             rel="noopener noreferrer"
             className="block w-full rounded-2xl border border-[#22d3ee]/30 bg-[#0a1426] px-4 py-3.5 text-center text-sm font-bold text-[#22d3ee] transition hover:bg-[#22d3ee]/10 active:translate-y-px"
