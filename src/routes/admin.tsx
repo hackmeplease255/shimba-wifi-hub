@@ -111,9 +111,11 @@ function AdminPage() {
 }
 
 function DashboardPage({ token, onLogout }: { token: string; onLogout: () => void }) {
-  const [tab, setTab] = useState<"dashboard" | "create" | "orders">("dashboard");
+  const [tab, setTab] = useState<"dashboard" | "create" | "orders" | "vouchers">("dashboard");
   const [stats, setStats] = useState<Stats | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
+  const [vouchers, setVouchers] = useState<any[]>([]);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
   const [msg, setMsg] = useState<{ kind: "success" | "error" | "info"; text: string } | null>(null);
   const [createPhone, setCreatePhone] = useState("");
   const [createPkg, setCreatePkg] = useState("6hours");
@@ -160,6 +162,19 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     finally { setOrdersLoading(false); }
   }
 
+  async function fetchVouchers() {
+    setVouchersLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/vouchers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) setVouchers(data.vouchers || []);
+    } catch { /* ignore */ }
+    finally { setVouchersLoading(false); }
+  }
+
   async function handleCreateVoucher(e: React.FormEvent) {
     e.preventDefault();
     setMsg(null);
@@ -194,6 +209,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   useEffect(() => {
     if (tab === "dashboard") fetchStats();
     if (tab === "orders") fetchOrders();
+    if (tab === "vouchers") fetchVouchers();
   }, [tab]);
 
   return (
@@ -217,11 +233,11 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
       <div className="mx-auto max-w-5xl px-4 pt-4">
         <div className="mb-4 flex gap-1.5 rounded-2xl border border-[#1f2a44] bg-[#0e1626] p-1.5">
-          {(["dashboard", "create", "orders"] as const).map((t) => (
+          {(["dashboard", "create", "orders", "vouchers"] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`flex-1 rounded-xl px-3 py-2.5 text-[13px] font-bold transition ${tab === t ? "bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.35)]" : "text-[#8aa0c4] hover:text-white"}`}
             >
-              {t === "dashboard" ? "📊 Takwimu" : t === "create" ? "➕ Tengeneza Vocha" : "📋 Orders"}
+              {t === "dashboard" ? "📊 Takwimu" : t === "create" ? "➕ Tengeneza Vocha" : t === "orders" ? "📋 Orders" : "🎫 Vocha"}
             </button>
           ))}
         </div>
@@ -335,6 +351,44 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                     </div>
                     <div className="mt-0.5 text-[10px] text-[#5a7094]">
                       {new Date(o.created_at).toLocaleString("sw-TZ")}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {tab === "vouchers" && (
+          <div className="rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Vocha Zote</h2>
+              <button onClick={fetchVouchers} disabled={vouchersLoading}
+                className="rounded-xl border border-[#1f2a44] bg-[#0e1626] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
+              >
+                {vouchersLoading ? "Inapakia..." : "♻ Onyesha upya"}
+              </button>
+            </div>
+            {vouchers.length === 0 ? (
+              <p className="text-center text-[#8aa0c4] py-8">{vouchersLoading ? "Inapakia..." : "Hakuna vocha"}</p>
+            ) : (
+              <div className="space-y-2">
+                {vouchers.map((v: any, i: number) => (
+                  <div key={v.id || i} className="rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-bold text-[#22d3ee]">{v.code}</span>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${v.status === "active" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" : v.status === "issued" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" : "bg-red-500/10 text-red-300 border border-red-500/30"}`}>
+                        {v.status}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
+                      <span>📦 {v.package_name}</span>
+                      {v.phone && <span>📱 {v.phone}</span>}
+                      <span>💰 {formatTzs(v.amount)}</span>
+                      {v.order_reference && <span className="font-mono text-[10px] opacity-70">🆔 {v.order_reference}</span>}
+                    </div>
+                    <div className="mt-0.5 text-[10px] text-[#5a7094]">
+                      {new Date(v.created_at).toLocaleString("sw-TZ")}
                     </div>
                   </div>
                 ))}
