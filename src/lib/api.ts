@@ -129,6 +129,17 @@ export async function checkVoucher(code: string): Promise<VoucherStatusResponse>
   return (await jsonOrText(res)) as VoucherStatusResponse;
 }
 
+export interface AutoConnectResponse {
+  auto: boolean;
+  code?: string;
+  package_name?: string;
+}
+
+export async function autoConnect(mac: string): Promise<AutoConnectResponse> {
+  const res = await fetch(`${API_URL}/api/auto-connect?mac=${encodeURIComponent(mac)}`);
+  return (await jsonOrText(res)) as AutoConnectResponse;
+}
+
 export function formatTzs(n: number): string {
   return new Intl.NumberFormat("en-TZ").format(n) + " TZS";
 }

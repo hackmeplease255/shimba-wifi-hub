@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import {
   API_URL,
+  autoConnect,
   checkVoucher,
   extractReference,
   formatTzs,
@@ -36,6 +37,34 @@ type Tab = "buy" | "use";
 function PortalPage() {
   const [tab, setTab] = useState<Tab>("buy");
   const [voucherPrefill, setVoucherPrefill] = useState("");
+  const [connecting, setConnecting] = useState<string | null>(null);
+
+  // Auto-connect: if MikroTik redirected us with a MAC, check for an active voucher
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mac = params.get("mac");
+    if (mac) {
+      setConnecting("connecting");
+      autoConnect(mac).then((r) => {
+        if (r.auto && r.code) {
+          window.location.href = API_URL + "/api/connect?code=" + encodeURIComponent(r.code);
+        } else {
+          setConnecting(null);
+        }
+      }).catch(() => setConnecting(null));
+    }
+  }, []);
+
+  if (connecting) {
+    return (
+      <div className="min-h-screen bg-[#070b14] flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block w-10 h-10 border-4 border-[#1f2a44] border-t-[#22d3ee] rounded-full animate-spin mb-4" />
+          <p className="text-[#8aa0c4] text-sm">Inakuunganisha tena kwenye SHIMBA WiFi...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[radial-gradient(1200px_600px_at_10%_-10%,rgba(34,211,238,0.18),transparent_60%),radial-gradient(1000px_500px_at_110%_10%,rgba(59,130,246,0.18),transparent_60%),linear-gradient(180deg,#070b14_0%,#0b1220_100%)] text-[#eaf2ff]">
