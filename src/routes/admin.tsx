@@ -158,6 +158,13 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [clearConfirm, setClearConfirm] = useState("");
   const [revenue, setRevenue] = useState<{ date: string; amount: number; count: number }[]>([]);
   const [revenueLoading, setRevenueLoading] = useState(false);
+  const [monthlyRevenue, setMonthlyRevenue] = useState<{ month: string; amount: number; count: number }[]>([]);
+  const [monthlyRevenueLoading, setMonthlyRevenueLoading] = useState(false);
+  const [revenueView, setRevenueView] = useState<"daily" | "monthly">("daily");
+  const [passwordCurrent, setPasswordCurrent] = useState("");
+  const [passwordNew, setPasswordNew] = useState("");
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordMsg, setPasswordMsg] = useState<string | null>(null);
   const [customers, setCustomers] = useState<{ phone: string; totalOrders: number; totalSpent: number; lastOrder: string }[]>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
   const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
@@ -274,6 +281,19 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     finally { setRevenueLoading(false); }
   }
 
+  async function fetchMonthlyRevenue() {
+    setMonthlyRevenueLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/monthly-revenue?months=12`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) setMonthlyRevenue(data.revenue || []);
+    } catch { /* ignore */ }
+    finally { setMonthlyRevenueLoading(false); }
+  }
+
   async function fetchCustomers() {
     setCustomersLoading(true);
     try {
@@ -298,6 +318,39 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
       if (data.success) setEvents(data.events || []);
     } catch { /* ignore */ }
     finally { setEventsLoading(false); }
+  }
+
+  async function handleChangePassword(e: React.FormEvent) {
+    e.preventDefault();
+    setPasswordMsg(null);
+    if (passwordNew.length < 4) {
+      setPasswordMsg("Password mpya inahitaji angalau herufi 4");
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/change-password`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ currentPassword: passwordCurrent, newPassword: passwordNew }),
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) {
+        setPasswordMsg("✅ " + data.message);
+        setPasswordCurrent("");
+        setPasswordNew("");
+      } else {
+        setPasswordMsg("❌ " + (data.message || "Imeshindikana"));
+      }
+    } catch (err: any) {
+      setPasswordMsg("❌ " + (err?.message || "Tatizo la mtandao"));
+    } finally {
+      setPasswordLoading(false);
+    }
   }
 
   async function handleClearData() {
@@ -524,59 +577,136 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
           {tab === "charts" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-3">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <span>📈</span> Mapato (Siku 14)
+                  <span>📈</span> Mapato
                 </h2>
-                <button onClick={fetchRevenue} disabled={revenueLoading}
-                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50"
-                >
-                  {revenueLoading ? "..." : "♻"}
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* Daily/Monthly toggle */}
+                  <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-0.5">
+                    <button
+                      onClick={() => { setRevenueView("daily"); fetchRevenue(); }}
+                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
+                        revenueView === "daily"
+                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
+                          : "text-[#5a7094] hover:text-white"
+                      }`}
+                    >
+                      Siku
+                    </button>
+                    <button
+                      onClick={() => { setRevenueView("monthly"); fetchMonthlyRevenue(); }}
+                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
+                        revenueView === "monthly"
+                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
+                          : "text-[#5a7094] hover:text-white"
+                      }`}
+                    >
+                      Mwezi
+                    </button>
+                  </div>
+                  <button onClick={() => {
+                    if (revenueView === "daily") fetchRevenue();
+                    else fetchMonthlyRevenue();
+                  }} disabled={revenueLoading || monthlyRevenueLoading}
+                    className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50"
+                  >
+                    ♻
+                  </button>
+                </div>
               </div>
 
-              {revenue.length === 0 ? (
-                <GlassCard>
-                  <p className="text-center text-[#8aa0c4] py-8">{revenueLoading ? "Inapakia..." : "Hakuna data ya mapato bado"}</p>
-                </GlassCard>
-              ) : (
+              {/* Daily Revenue Chart */}
+              {revenueView === "daily" && (
                 <>
-                  {/* Simple SVG bar chart */}
-                  <GlassCard>
-                    <div className="flex items-end gap-1.5 h-40" style={{ minHeight: "160px" }}>
-                      {revenue.map((r, i) => {
-                        const maxAmount = Math.max(...revenue.map(x => x.amount), 1);
-                        const heightPct = (r.amount / maxAmount) * 100;
-                        const day = r.date.slice(5);
-                        return (
-                          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0a0f1e] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-[#22d3ee] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
-                              {formatTzs(r.amount)}
+                  {revenue.length === 0 ? (
+                    <GlassCard>
+                      <p className="text-center text-[#8aa0c4] py-8">{revenueLoading ? "Inapakia..." : "Hakuna data ya mapato kwa siku 14 zilizopita"}</p>
+                    </GlassCard>
+                  ) : (
+                    <GlassCard>
+                      <div className="flex items-end gap-1.5 h-40" style={{ minHeight: "160px" }}>
+                        {revenue.map((r, i) => {
+                          const maxAmount = Math.max(...revenue.map(x => x.amount), 1);
+                          const heightPct = (r.amount / maxAmount) * 100;
+                          const day = r.date.slice(5);
+                          return (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0a0f1e] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-[#22d3ee] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                                {formatTzs(r.amount)}
+                              </div>
+                              <div
+                                className="w-full rounded-t-md bg-gradient-to-t from-[#22d3ee] to-[#3b82f6] transition-all hover:brightness-110 cursor-pointer"
+                                style={{ height: `${Math.max(heightPct, 2)}%` }}
+                              />
+                              <span className="text-[9px] text-[#5a7094] -rotate-45 origin-left">{day}</span>
                             </div>
-                            <div
-                              className="w-full rounded-t-md bg-gradient-to-t from-[#22d3ee] to-[#3b82f6] transition-all hover:brightness-110 cursor-pointer"
-                              style={{ height: `${Math.max(heightPct, 2)}%` }}
-                            />
-                            <span className="text-[9px] text-[#5a7094] -rotate-45 origin-left">{day}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
-                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
-                        <div className="text-lg font-black text-[#22d3ee]">{formatTzs(revenue.reduce((s, r) => s + r.amount, 0))}</div>
-                        <div className="text-[10px] text-[#5a7094]">Jumla</div>
+                          );
+                        })}
                       </div>
-                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
-                        <div className="text-lg font-black text-emerald-300">{revenue.reduce((s, r) => s + r.count, 0)}</div>
-                        <div className="text-[10px] text-[#5a7094]">Orders</div>
+                      <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                          <div className="text-lg font-black text-[#22d3ee]">{formatTzs(revenue.reduce((s, r) => s + r.amount, 0))}</div>
+                          <div className="text-[10px] text-[#5a7094]">Jumla</div>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                          <div className="text-lg font-black text-emerald-300">{revenue.reduce((s, r) => s + r.count, 0)}</div>
+                          <div className="text-[10px] text-[#5a7094]">Orders</div>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                          <div className="text-lg font-black text-yellow-300">{revenue.length}</div>
+                          <div className="text-[10px] text-[#5a7094]">Siku</div>
+                        </div>
                       </div>
-                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
-                        <div className="text-lg font-black text-yellow-300">{revenue.length}</div>
-                        <div className="text-[10px] text-[#5a7094]">Siku</div>
+                    </GlassCard>
+                  )}
+                </>
+              )}
+
+              {/* Monthly Revenue Chart */}
+              {revenueView === "monthly" && (
+                <>
+                  {monthlyRevenue.length === 0 ? (
+                    <GlassCard>
+                      <p className="text-center text-[#8aa0c4] py-8">{monthlyRevenueLoading ? "Inapakia..." : "Hakuna data ya mapato kwa miezi 12"}</p>
+                    </GlassCard>
+                  ) : (
+                    <GlassCard>
+                      <div className="flex items-end gap-2 h-40" style={{ minHeight: "160px" }}>
+                        {monthlyRevenue.map((r, i) => {
+                          const maxAmount = Math.max(...monthlyRevenue.map(x => x.amount), 1);
+                          const heightPct = (r.amount / maxAmount) * 100;
+                          const shortMonth = r.month.slice(5); // "2024-06" -> "06"
+                          return (
+                            <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                              <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0a0f1e] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-[#22d3ee] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                                {formatTzs(r.amount)}
+                              </div>
+                              <div
+                                className="w-full rounded-t-md bg-gradient-to-t from-emerald-400 to-emerald-600 transition-all hover:brightness-110 cursor-pointer"
+                                style={{ height: `${Math.max(heightPct, 2)}%` }}
+                              />
+                              <span className="text-[9px] text-[#5a7094]">{r.month}</span>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </div>
-                  </GlassCard>
+                      <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                          <div className="text-lg font-black text-emerald-300">{formatTzs(monthlyRevenue.reduce((s, r) => s + r.amount, 0))}</div>
+                          <div className="text-[10px] text-[#5a7094]">Jumla (Miezi 12)</div>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                          <div className="text-lg font-black text-emerald-300">{monthlyRevenue.reduce((s, r) => s + r.count, 0)}</div>
+                          <div className="text-[10px] text-[#5a7094]">Orders</div>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                          <div className="text-lg font-black text-yellow-300">{monthlyRevenue.length}</div>
+                          <div className="text-[10px] text-[#5a7094]">Miezi</div>
+                        </div>
+                      </div>
+                    </GlassCard>
+                  )}
                 </>
               )}
             </div>
@@ -802,6 +932,51 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
               <h2 className="text-xl font-bold flex items-center gap-2">
                 <span>⚙️</span> Mipangilio
               </h2>
+
+              {/* Change Password */}
+              <GlassCard>
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="text-3xl">🔐</div>
+                  <div>
+                    <h3 className="text-lg font-bold text-[#22d3ee]">Badilisha Password</h3>
+                    <p className="text-sm text-[#8aa0c4]">Badilisha password ya kuingia kwenye admin panel</p>
+                  </div>
+                </div>
+                <form onSubmit={handleChangePassword} className="space-y-3">
+                  <div>
+                    <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Password ya Sasa</label>
+                    <input
+                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15"
+                      type="password" value={passwordCurrent}
+                      onChange={(e) => setPasswordCurrent(e.target.value)}
+                      placeholder="Fanya login kwanza"
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Password Mpya</label>
+                    <input
+                      className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15"
+                      type="password" value={passwordNew}
+                      onChange={(e) => setPasswordNew(e.target.value)}
+                      placeholder="Angalau herufi 4"
+                    />
+                  </div>
+                  <button type="submit" disabled={passwordLoading || !passwordCurrent || !passwordNew}
+                    className="w-full rounded-2xl bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] px-4 py-3.5 text-base font-extrabold text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.4)] transition active:translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {passwordLoading ? "Inabadilisha..." : "🔐 Badilisha Password"}
+                  </button>
+                  {passwordMsg && (
+                    <div className={`rounded-xl border px-3.5 py-2.5 text-sm ${
+                      passwordMsg.startsWith("✅")
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
+                        : "border-red-500/30 bg-red-500/10 text-red-300"
+                    }`}>
+                      {passwordMsg}
+                    </div>
+                  )}
+                </form>
+              </GlassCard>
 
               {/* Clear Data */}
               <GlassCard>
