@@ -427,8 +427,9 @@ function UseTab({ prefill }: { prefill: string }) {
             onClick={async () => {
               // First associate MAC with voucher for auto-connect on return
               const mac = getMacFromUrl();
+              const ip = new URLSearchParams(window.location.search).get("ip") || "";
               if (mac) {
-                await associateMac(mac, code);
+                await associateMac(mac, code, ip);
               }
               // Redirect langsung kwa MikroTik login na credentials
               redirectToMikrotik(code);

@@ -140,12 +140,12 @@ export async function autoConnect(mac: string): Promise<AutoConnectResponse> {
   return (await jsonOrText(res)) as AutoConnectResponse;
 }
 
-export async function associateMac(mac: string, code: string): Promise<{ success: boolean }> {
+export async function associateMac(mac: string, code: string, ip?: string): Promise<{ success: boolean }> {
   try {
     const res = await fetch(`${API_URL}/api/associate-mac`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ mac, code }),
+      body: JSON.stringify({ mac, code, ip: ip || '' }),
     });
     const data = await res.json();
     return { success: data?.success === true };
