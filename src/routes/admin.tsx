@@ -688,7 +688,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
 function GlassCard({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-[18px] border border-white/[0.06] bg-white/[0.03] p-5 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.7)]">
+    <div className="rounded-[18px] border border-white/[0.06] bg-white/[0.03] backdrop-blur p-5 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.7)]">
       {children}
     </div>
   );
