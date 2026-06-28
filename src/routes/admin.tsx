@@ -123,14 +123,17 @@ function AdminPage() {
   return <DashboardPage token={token} onLogout={handleLogout} />;
 }
 
-type Tab = "dashboard" | "create" | "connected" | "orders" | "vouchers" | "settings";
+type Tab = "dashboard" | "charts" | "connected" | "create" | "orders" | "vouchers" | "customers" | "logs" | "settings";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "dashboard", label: "Takwimu", icon: "📊" },
+  { id: "charts", label: "Mapato", icon: "📈" },
   { id: "connected", label: "Mtandao", icon: "📶" },
   { id: "create", label: "Vocha", icon: "➕" },
   { id: "orders", label: "Orders", icon: "📋" },
   { id: "vouchers", label: "Orodha", icon: "🎫" },
+  { id: "customers", label: "Wateja", icon: "👥" },
+  { id: "logs", label: "Kumbukumbu", icon: "📝" },
   { id: "settings", label: "Mipangilio", icon: "⚙️" },
 ];
 
@@ -153,6 +156,12 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [vouchersLoading, setVouchersLoading] = useState(false);
   const [clearLoading, setClearLoading] = useState(false);
   const [clearConfirm, setClearConfirm] = useState("");
+  const [revenue, setRevenue] = useState<{ date: string; amount: number; count: number }[]>([]);
+  const [revenueLoading, setRevenueLoading] = useState(false);
+  const [customers, setCustomers] = useState<{ phone: string; totalOrders: number; totalSpent: number; lastOrder: string }[]>([]);
+  const [customersLoading, setCustomersLoading] = useState(false);
+  const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
 
   const packages = [
     { id: "6hours", name: "Masaa 6", price: 500 },
@@ -252,6 +261,45 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     }
   }
 
+  async function fetchRevenue() {
+    setRevenueLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/daily-revenue?days=14`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) setRevenue(data.revenue || []);
+    } catch { /* ignore */ }
+    finally { setRevenueLoading(false); }
+  }
+
+  async function fetchCustomers() {
+    setCustomersLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/customers`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) setCustomers(data.customers || []);
+    } catch { /* ignore */ }
+    finally { setCustomersLoading(false); }
+  }
+
+  async function fetchEvents() {
+    setEventsLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/system-events?limit=50`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) setEvents(data.events || []);
+    } catch { /* ignore */ }
+    finally { setEventsLoading(false); }
+  }
+
   async function handleClearData() {
     if (clearConfirm !== "RESET_ALL_DATA") return;
     setClearLoading(true);
@@ -285,9 +333,12 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
   const fetchByTab = useCallback(async (t: Tab) => {
     if (t === "dashboard") fetchStats();
+    else if (t === "charts") fetchRevenue();
     else if (t === "connected") fetchConnected();
     else if (t === "orders") fetchOrders();
     else if (t === "vouchers") fetchVouchers();
+    else if (t === "customers") fetchCustomers();
+    else if (t === "logs") fetchEvents();
   }, [token]);
 
   useEffect(() => { fetchByTab(tab); }, [tab]);
@@ -471,6 +522,66 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
             </div>
           )}
 
+          {tab === "charts" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span>📈</span> Mapato (Siku 14)
+                </h2>
+                <button onClick={fetchRevenue} disabled={revenueLoading}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50"
+                >
+                  {revenueLoading ? "..." : "♻"}
+                </button>
+              </div>
+
+              {revenue.length === 0 ? (
+                <GlassCard>
+                  <p className="text-center text-[#8aa0c4] py-8">{revenueLoading ? "Inapakia..." : "Hakuna data ya mapato bado"}</p>
+                </GlassCard>
+              ) : (
+                <>
+                  {/* Simple SVG bar chart */}
+                  <GlassCard>
+                    <div className="flex items-end gap-1.5 h-40" style={{ minHeight: "160px" }}>
+                      {revenue.map((r, i) => {
+                        const maxAmount = Math.max(...revenue.map(x => x.amount), 1);
+                        const heightPct = (r.amount / maxAmount) * 100;
+                        const day = r.date.slice(5);
+                        return (
+                          <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
+                            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0a0f1e] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-[#22d3ee] font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                              {formatTzs(r.amount)}
+                            </div>
+                            <div
+                              className="w-full rounded-t-md bg-gradient-to-t from-[#22d3ee] to-[#3b82f6] transition-all hover:brightness-110 cursor-pointer"
+                              style={{ height: `${Math.max(heightPct, 2)}%` }}
+                            />
+                            <span className="text-[9px] text-[#5a7094] -rotate-45 origin-left">{day}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                        <div className="text-lg font-black text-[#22d3ee]">{formatTzs(revenue.reduce((s, r) => s + r.amount, 0))}</div>
+                        <div className="text-[10px] text-[#5a7094]">Jumla</div>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                        <div className="text-lg font-black text-emerald-300">{revenue.reduce((s, r) => s + r.count, 0)}</div>
+                        <div className="text-[10px] text-[#5a7094]">Orders</div>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] p-2">
+                        <div className="text-lg font-black text-yellow-300">{revenue.length}</div>
+                        <div className="text-[10px] text-[#5a7094]">Siku</div>
+                      </div>
+                    </div>
+                  </GlassCard>
+                </>
+              )}
+            </div>
+          )}
+
           {tab === "create" && (
             <div className="space-y-4">
               <h2 className="text-xl font-bold flex items-center gap-2">
@@ -519,6 +630,77 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
                 {msg && !createResult && <MessageBox msg={msg} />}
               </GlassCard>
+            </div>
+          )}
+
+          {tab === "customers" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span>👥</span> Wateja
+                </h2>
+                <button onClick={fetchCustomers} disabled={customersLoading}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50"
+                >
+                  {customersLoading ? "..." : "♻"}
+                </button>
+              </div>
+              {customers.length === 0 ? (
+                <GlassCard>
+                  <p className="text-center text-[#8aa0c4] py-8">{customersLoading ? "Inapakia..." : "Hakuna wateja bado"}</p>
+                </GlassCard>
+              ) : (
+                <div className="space-y-2">
+                  {customers.map((c, i) => (
+                    <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-sm font-bold text-[#22d3ee]">📱 {c.phone}</span>
+                        <span className="text-[11px] text-[#5a7094]">
+                          {new Date(c.lastOrder).toLocaleString("sw-TZ")}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
+                        <span>📦 Orders: <strong className="text-white">{c.totalOrders}</strong></span>
+                        <span>💰 Jumla: <strong className="text-emerald-300">{formatTzs(c.totalSpent)}</strong></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {tab === "logs" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span>📝</span> Kumbukumbu za Mfumo
+                </h2>
+                <button onClick={fetchEvents} disabled={eventsLoading}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50"
+                >
+                  {eventsLoading ? "..." : "♻"}
+                </button>
+              </div>
+              {events.length === 0 ? (
+                <GlassCard>
+                  <p className="text-center text-[#8aa0c4] py-8">{eventsLoading ? "Inapakia..." : "Hakuna matukio bado"}</p>
+                </GlassCard>
+              ) : (
+                <div className="space-y-1.5 max-h-[600px] overflow-y-auto">
+                  {events.map((e, i) => (
+                    <div key={e.id || i} className="rounded-xl border border-white/[0.04] bg-white/[0.015] px-3 py-2 flex items-start gap-2.5">
+                      <span className={`mt-0.5 text-[14px] ${e.type === 'webhook' ? 'text-[#22d3ee]' : 'text-yellow-300'}`}>
+                        {e.type === 'webhook' ? '🔔' : '🎫'}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[12px] font-medium text-[#eaf2ff] truncate">{e.message}</p>
+                        <p className="text-[10px] text-[#5a7094]">{new Date(e.time).toLocaleString("sw-TZ")}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
