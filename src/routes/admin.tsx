@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { API_URL, formatTzs } from "@/lib/api";
 
 export const Route = createFileRoute("/admin")({
@@ -22,6 +22,16 @@ interface Stats {
   failedOrders: number;
   totalMoney: number;
   weekMoney: number;
+}
+
+interface ConnectedUser {
+  id: number;
+  user: string;
+  code: string;
+  mac: string;
+  ip: string;
+  package_name: string;
+  login_at: string;
 }
 
 function AdminPage() {
@@ -52,7 +62,7 @@ function AdminPage() {
       });
       const text = await res.text();
       let data: any = { message: text };
-      try { data = text ? JSON.parse(text) : {}; } catch { /* not JSON — use text as message */ }
+      try { data = text ? JSON.parse(text) : {}; } catch { /* not JSON */ }
       if (data.success && data.token) {
         sessionStorage.setItem("admin_token", data.token);
         setToken(data.token);
@@ -75,10 +85,14 @@ function AdminPage() {
 
   if (page === "login") {
     return (
-      <div className="min-h-screen bg-[#070b14] flex items-center justify-center p-4">
-        <div className="w-full max-w-sm rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-6 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.7)]">
+      <div className="min-h-screen bg-[#070b14] flex items-center justify-center p-4 relative overflow-hidden">
+        {/* Glass background ornaments */}
+        <div className="absolute -top-40 -left-40 w-96 h-96 rounded-full bg-[#22d3ee]/5 blur-[120px]" />
+        <div className="absolute -bottom-40 -right-40 w-96 h-96 rounded-full bg-[#3b82f6]/5 blur-[120px]" />
+        
+        <div className="w-full max-w-sm rounded-[18px] border border-white/[0.08] bg-white/[0.04] backdrop-blur-2xl p-7 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.7)]">
           <div className="text-center mb-6">
-            <div className="inline-flex h-12 w-12 items-center justify-center rounded-[14px] bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[20px] font-black text-[#001018] shadow-[0_8px_24px_-8px_rgba(34,211,238,0.45)] mb-3">
+            <div className="inline-flex h-14 w-14 items-center justify-center rounded-[16px] bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[24px] font-black text-[#001018] shadow-[0_8px_24px_-8px_rgba(34,211,238,0.5)] mb-3">
               S
             </div>
             <h1 className="text-xl font-bold text-[#eaf2ff]">Admin Panel</h1>
@@ -87,11 +101,11 @@ function AdminPage() {
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Username</label>
-              <input className="w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" autoFocus />
+              <input className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="text" value={username} onChange={(e) => setUsername(e.target.value)} placeholder="admin" autoFocus />
             </div>
             <div>
               <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Password</label>
-              <input className="w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
+              <input className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
             <button type="submit" disabled={loginLoading || !username || !password}
               className="w-full rounded-2xl bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] px-4 py-3.5 text-base font-extrabold text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.4)] transition active:translate-y-px disabled:opacity-60 disabled:cursor-not-allowed"
@@ -110,12 +124,24 @@ function AdminPage() {
   return <DashboardPage token={token} onLogout={handleLogout} />;
 }
 
+type Tab = "dashboard" | "create" | "connected" | "orders" | "vouchers" | "settings";
+
+const TABS: { id: Tab; label: string; icon: string }[] = [
+  { id: "dashboard", label: "Takwimu", icon: "📊" },
+  { id: "connected", label: "Mtandao", icon: "📶" },
+  { id: "create", label: "Vocha", icon: "➕" },
+  { id: "orders", label: "Orders", icon: "📋" },
+  { id: "vouchers", label: "Orodha", icon: "🎫" },
+  { id: "settings", label: "Mipangilio", icon: "⚙️" },
+];
+
 function DashboardPage({ token, onLogout }: { token: string; onLogout: () => void }) {
-  const [tab, setTab] = useState<"dashboard" | "create" | "orders" | "vouchers">("dashboard");
+  const [tab, setTab] = useState<Tab>("dashboard");
   const [stats, setStats] = useState<Stats | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [vouchers, setVouchers] = useState<any[]>([]);
-  const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [connected, setConnected] = useState<ConnectedUser[]>([]);
+  const [totalUnique, setTotalUnique] = useState(0);
   const [msg, setMsg] = useState<{ kind: "success" | "error" | "info"; text: string } | null>(null);
   const [createPhone, setCreatePhone] = useState("");
   const [createPkg, setCreatePkg] = useState("6hours");
@@ -123,6 +149,10 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [createResult, setCreateResult] = useState<any>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [connectedLoading, setConnectedLoading] = useState(false);
+  const [vouchersLoading, setVouchersLoading] = useState(false);
+  const [clearLoading, setClearLoading] = useState(false);
+  const [clearConfirm, setClearConfirm] = useState("");
 
   const packages = [
     { id: "6hours", name: "Masaa 6", price: 500 },
@@ -152,7 +182,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   async function fetchOrders() {
     setOrdersLoading(true);
     try {
-      const res = await fetch(`${API_URL}/api/admin/orders?limit=20`, {
+      const res = await fetch(`${API_URL}/api/admin/orders?limit=30`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (res.status === 401) return handleUnauthorized();
@@ -160,6 +190,22 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
       if (data.success) setOrders(data.orders || []);
     } catch { /* ignore */ }
     finally { setOrdersLoading(false); }
+  }
+
+  async function fetchConnected() {
+    setConnectedLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/connected-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) {
+        setConnected(data.users || []);
+        setTotalUnique(data.totalUnique || 0);
+      }
+    } catch { /* ignore */ }
+    finally { setConnectedLoading(false); }
   }
 
   async function fetchVouchers() {
@@ -206,15 +252,57 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     }
   }
 
+  async function handleClearData() {
+    if (clearConfirm !== "RESET_ALL_DATA") return;
+    setClearLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/clear-data`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ confirm: "RESET_ALL_DATA" }),
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) {
+        setMsg({ kind: "success", text: data.message });
+        setClearConfirm("");
+        setStats(null);
+        setOrders([]);
+        setVouchers([]);
+        setConnected([]);
+      } else {
+        setMsg({ kind: "error", text: data.message || "Imeshindikana" });
+      }
+    } catch (err: any) {
+      setMsg({ kind: "error", text: err?.message || "Tatizo la mtandao" });
+    } finally {
+      setClearLoading(false);
+    }
+  }
+
+  const fetchByTab = useCallback(async (t: Tab) => {
+    if (t === "dashboard") fetchStats();
+    else if (t === "connected") fetchConnected();
+    else if (t === "orders") fetchOrders();
+    else if (t === "vouchers") fetchVouchers();
+  }, [token]);
+
+  useEffect(() => { fetchByTab(tab); }, [tab]);
+
+  // Auto-refresh connected users every 15 seconds
   useEffect(() => {
-    if (tab === "dashboard") fetchStats();
-    if (tab === "orders") fetchOrders();
-    if (tab === "vouchers") fetchVouchers();
-  }, [tab]);
+    if (tab !== "connected") return;
+    const interval = setInterval(fetchConnected, 15_000);
+    return () => clearInterval(interval);
+  }, [tab, token]);
 
   return (
     <div className="min-h-screen bg-[#070b14] text-[#eaf2ff]">
-      <header className="border-b border-[#1f2a44] bg-[#0e1626] px-4 py-3">
+      {/* Glass header */}
+      <header className="sticky top-0 z-10 border-b border-white/[0.06] bg-white/[0.03] backdrop-blur-xl px-4 py-3">
         <div className="mx-auto flex max-w-5xl items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="grid h-9 w-9 place-items-center rounded-[10px] bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[14px] font-black text-[#001018]">
@@ -232,16 +320,23 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
       </header>
 
       <div className="mx-auto max-w-5xl px-4 pt-4">
-        <div className="mb-4 flex gap-1.5 rounded-2xl border border-[#1f2a44] bg-[#0e1626] p-1.5">
-          {(["dashboard", "create", "orders", "vouchers"] as const).map((t) => (
-            <button key={t} onClick={() => setTab(t)}
-              className={`flex-1 rounded-xl px-3 py-2.5 text-[13px] font-bold transition ${tab === t ? "bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.35)]" : "text-[#8aa0c4] hover:text-white"}`}
+        {/* Liquid Glass Tab Bar */}
+        <div className="mb-4 flex gap-1 overflow-x-auto rounded-2xl border border-white/[0.06] bg-white/[0.03] backdrop-blur p-1.5 scrollbar-none">
+          {TABS.map((t) => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2.5 text-[13px] font-bold whitespace-nowrap transition-all ${
+                tab === t.id
+                  ? "bg-gradient-to-br from-[#22d3ee] to-[#3b82f6] text-[#001018] shadow-[0_10px_30px_-12px_rgba(34,211,238,0.35)]"
+                  : "text-[#8aa0c4] hover:text-white hover:bg-white/[0.04]"
+              }`}
             >
-              {t === "dashboard" ? "📊 Takwimu" : t === "create" ? "➕ Tengeneza Vocha" : t === "orders" ? "📋 Orders" : "🎫 Vocha"}
+              <span className="text-[16px]">{t.icon}</span>
+              {t.label}
             </button>
           ))}
         </div>
 
+        {/* Tab Content */}
         {tab === "dashboard" && (
           <div className="space-y-4">
             {stats ? (
@@ -257,21 +352,64 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                   <StatCard label="Wiki Hii" value={formatTzs(stats.weekMoney)} color="emerald" />
                 </div>
                 <button onClick={fetchStats} disabled={statsLoading}
-                  className="rounded-xl border border-[#1f2a44] bg-[#0e1626] px-4 py-2 text-sm text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] backdrop-blur px-4 py-2 text-sm text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
                 >
                   {statsLoading ? "Inapakia..." : "♻ Onyesha upya"}
                 </button>
               </>
             ) : (
-              <div className="rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-8 text-center">
-                <p className="text-[#8aa0c4]">{statsLoading ? "Inapakia takwimu..." : "Bonyeza 'Onyesha upya' kuona takwimu"}</p>
-              </div>
+              <GlassCard>
+                <p className="text-center text-[#8aa0c4] py-8">{statsLoading ? "Inapakia takwimu..." : "Bonyeza 'Onyesha upya' kuona takwimu"}</p>
+              </GlassCard>
             )}
           </div>
         )}
 
+        {tab === "connected" && (
+          <GlassCard>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-lg font-bold">Waliounganishwa</h2>
+                <p className="text-sm text-[#8aa0c4]">Wateja walio kwenye mtandao sasa</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-bold text-emerald-300">
+                  {totalUnique} unique
+                </div>
+                <button onClick={fetchConnected} disabled={connectedLoading}
+                  className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
+                >
+                  {connectedLoading ? "..." : "♻"}
+                </button>
+              </div>
+            </div>
+
+            {connected.length === 0 ? (
+              <p className="text-center text-[#8aa0c4] py-8">{connectedLoading ? "Inapakia..." : "Hakuna mtumiaji aliyeunganishwa sasa"}</p>
+            ) : (
+              <div className="space-y-2 max-h-[500px] overflow-y-auto">
+                {connected.map((u, i) => (
+                  <div key={u.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm font-bold text-[#22d3ee]">{u.code}</span>
+                      <span className="text-[11px] text-[#5a7094]">
+                        {new Date(u.login_at).toLocaleString("sw-TZ")}
+                      </span>
+                    </div>
+                    <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
+                      <span>📶 {u.mac}</span>
+                      <span>🌐 {u.ip}</span>
+                      <span>📦 {u.package_name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </GlassCard>
+        )}
+
         {tab === "create" && (
-          <div className="rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-5">
+          <GlassCard>
             <h2 className="text-lg font-bold mb-1">Tengeneza Vocha</h2>
             <p className="text-sm text-[#8aa0c4] mb-4">Tengeneza vocha kwa mteja bila malipo (admin action).</p>
 
@@ -286,7 +424,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                 <p className="text-sm text-[#8aa0c4] mb-1">Kifurushi: {createResult.package}</p>
                 <p className="text-sm text-[#8aa0c4]">Kiasi: {formatTzs(createResult.amount)}</p>
                 <button onClick={() => { setCreateResult(null); setMsg(null); }}
-                  className="mt-4 rounded-xl border border-[#1f2a44] bg-[#0e1626] px-4 py-2.5 text-sm text-[#8aa0c4] hover:text-white transition"
+                  className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-sm text-[#8aa0c4] hover:text-white transition"
                 >
                   Tengeneza Nyingine
                 </button>
@@ -295,11 +433,11 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
               <form onSubmit={handleCreateVoucher} className="space-y-4">
                 <div>
                   <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Namba ya Simu (si lazima)</label>
-                  <input className="w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="tel" value={createPhone} onChange={(e) => setCreatePhone(e.target.value)} placeholder="Acha tupu ukitengeneza vocha kwa cash" />
+                  <input className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" type="tel" value={createPhone} onChange={(e) => setCreatePhone(e.target.value)} placeholder="Acha tupu ukitengeneza vocha kwa cash" />
                 </div>
                 <div>
                   <label className="block mb-1 text-[13px] font-semibold text-[#8aa0c4]">Kifurushi</label>
-                  <select className="w-full rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" value={createPkg} onChange={(e) => setCreatePkg(e.target.value)}>
+                  <select className="w-full rounded-xl border border-white/[0.08] bg-white/[0.04] backdrop-blur px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15" value={createPkg} onChange={(e) => setCreatePkg(e.target.value)}>
                     {packages.map((p) => (
                       <option key={p.id} value={p.id}>{p.name} — {formatTzs(p.price)}</option>
                     ))}
@@ -313,20 +451,16 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
               </form>
             )}
 
-            {msg && !createResult && (
-              <div className={`mt-4 rounded-xl border px-3.5 py-2.5 text-sm ${msg.kind === "success" ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300" : msg.kind === "error" ? "border-red-500/30 bg-red-500/10 text-red-300" : "border-[#22d3ee]/25 bg-[#22d3ee]/10 text-[#a5f3fc]"}`}>
-                {msg.text}
-              </div>
-            )}
-          </div>
+            {msg && !createResult && <MessageBox msg={msg} />}
+          </GlassCard>
         )}
 
         {tab === "orders" && (
-          <div className="rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-5">
+          <GlassCard>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Orders za Hivi Karibuni</h2>
               <button onClick={fetchOrders} disabled={ordersLoading}
-                className="rounded-xl border border-[#1f2a44] bg-[#0e1626] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
+                className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
               >
                 {ordersLoading ? "Inapakia..." : "♻ Onyesha upya"}
               </button>
@@ -334,12 +468,16 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
             {orders.length === 0 ? (
               <p className="text-center text-[#8aa0c4] py-8">{ordersLoading ? "Inapakia..." : "Hakuna orders"}</p>
             ) : (
-              <div className="space-y-2">
-                {orders.slice(0, 30).map((o, i) => (
-                  <div key={o.id || i} className="rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-2.5">
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
+                {orders.slice(0, 50).map((o, i) => (
+                  <div key={o.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-xs text-[#22d3ee]">{o.order_reference}</span>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${o.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" : o.status === "PROCESSING" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" : "bg-red-500/10 text-red-300 border border-red-500/30"}`}>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                        o.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
+                        o.status === "PROCESSING" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" :
+                        "bg-red-500/10 text-red-300 border border-red-500/30"
+                      }`}>
                         {o.status}
                       </span>
                     </div>
@@ -356,15 +494,15 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                 ))}
               </div>
             )}
-          </div>
+          </GlassCard>
         )}
 
         {tab === "vouchers" && (
-          <div className="rounded-[18px] border border-[#1f2a44] bg-gradient-to-b from-[#111a2e] to-[#0e1626] p-5">
+          <GlassCard>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-lg font-bold">Vocha Zote</h2>
               <button onClick={fetchVouchers} disabled={vouchersLoading}
-                className="rounded-xl border border-[#1f2a44] bg-[#0e1626] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
+                className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white transition disabled:opacity-50"
               >
                 {vouchersLoading ? "Inapakia..." : "♻ Onyesha upya"}
               </button>
@@ -372,12 +510,17 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
             {vouchers.length === 0 ? (
               <p className="text-center text-[#8aa0c4] py-8">{vouchersLoading ? "Inapakia..." : "Hakuna vocha"}</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-2 max-h-[600px] overflow-y-auto">
                 {vouchers.map((v: any, i: number) => (
-                  <div key={v.id || i} className="rounded-xl border border-[#1f2a44] bg-[#0a1426] px-3.5 py-2.5">
+                  <div key={v.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
                     <div className="flex items-center justify-between">
                       <span className="font-mono text-sm font-bold text-[#22d3ee]">{v.code}</span>
-                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${v.status === "active" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" : v.status === "issued" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" : "bg-red-500/10 text-red-300 border border-red-500/30"}`}>
+                      <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                        v.status === "active" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
+                        v.status === "issued" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" :
+                        v.status === "used" || v.status === "expired" ? "bg-red-500/10 text-red-300 border border-red-500/30" :
+                        "bg-gray-500/10 text-gray-300 border border-gray-500/30"
+                      }`}>
                         {v.status}
                       </span>
                     </div>
@@ -394,9 +537,83 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                 ))}
               </div>
             )}
+          </GlassCard>
+        )}
+
+        {tab === "settings" && (
+          <div className="space-y-4">
+            {/* Clear Data */}
+            <GlassCard>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-2xl">🗑️</div>
+                <div>
+                  <h2 className="text-lg font-bold text-red-300">Futa Data Zote</h2>
+                  <p className="text-sm text-[#8aa0c4]">Hii itafuta orders zote, vocha, na wateja waliounganishwa. Haitendui tena!</p>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <input
+                  className="w-full rounded-xl border border-red-500/30 bg-red-500/5 px-3.5 py-3 text-base text-[#eaf2ff] outline-none transition focus:border-red-500 placeholder:text-red-800"
+                  type="text"
+                  value={clearConfirm}
+                  onChange={(e) => setClearConfirm(e.target.value)}
+                  placeholder="Andika RESET_ALL_DATA kuthibitisha"
+                />
+                <button
+                  onClick={handleClearData}
+                  disabled={clearConfirm !== "RESET_ALL_DATA" || clearLoading}
+                  className="w-full rounded-2xl bg-gradient-to-br from-red-600 to-red-700 px-4 py-3.5 text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(239,68,68,0.4)] transition active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {clearLoading ? "Inafuta..." : "🗑️ Futa Data Zote"}
+                </button>
+              </div>
+            </GlassCard>
+
+            {/* System Info */}
+            <GlassCard>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="text-2xl">ℹ️</div>
+                <div>
+                  <h2 className="text-lg font-bold">Taarifa za Mfumo</h2>
+                  <p className="text-sm text-[#8aa0c4]">System info na hali ya backend</p>
+                </div>
+              </div>
+              <div className="space-y-2 text-sm text-[#8aa0c4]">
+                <div className="flex justify-between">
+                  <span>Backend URL</span>
+                  <span className="font-mono text-[#22d3ee]">{API_URL}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Admin Token</span>
+                  <span className="font-mono text-[11px] text-[#5a7094]">{token.slice(0, 30)}...</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Total Connected</span>
+                  <span className="font-bold text-emerald-300">{connected.length} sasa</span>
+                </div>
+              </div>
+              <button
+                onClick={() => fetchConnected()}
+                className="mt-3 rounded-xl border border-[#22d3ee]/30 bg-[#22d3ee]/5 px-4 py-2 text-sm font-semibold text-[#22d3ee] hover:bg-[#22d3ee]/10 transition"
+              >
+                🔄 Angalia Connected Users
+              </button>
+            </GlassCard>
           </div>
         )}
+
+        {msg && tab !== "create" && <MessageBox msg={msg} />}
       </div>
+    </div>
+  );
+}
+
+/* ── Reusable Components ── */
+
+function GlassCard({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-[18px] border border-white/[0.06] bg-white/[0.03] backdrop-blur p-5 shadow-[0_20px_40px_-28px_rgba(0,0,0,0.7)]">
+      {children}
     </div>
   );
 }
@@ -410,9 +627,22 @@ function StatCard({ label, value, color }: { label: string; value: string | numb
   };
   const c = colors[color] || colors.cyan;
   return (
-    <div className={`rounded-[16px] border ${c.border} ${c.bg} p-4`}>
+    <div className={`rounded-[16px] border ${c.border} ${c.bg} p-4 backdrop-blur`}>
       <div className={`text-2xl font-black ${c.text}`}>{value}</div>
       <div className="text-[12px] text-[#8aa0c4] mt-0.5">{label}</div>
+    </div>
+  );
+}
+
+function MessageBox({ msg }: { msg: { kind: "success" | "error" | "info"; text: string } }) {
+  const styles = {
+    info: "border-[#22d3ee]/25 bg-[#22d3ee]/10 text-[#a5f3fc]",
+    success: "border-emerald-500/30 bg-emerald-500/10 text-emerald-300",
+    error: "border-red-500/30 bg-red-500/10 text-red-300",
+  }[msg.kind];
+  return (
+    <div className={`mt-3.5 rounded-xl border px-3.5 py-3 text-sm ${styles}`}>
+      {msg.text}
     </div>
   );
 }
