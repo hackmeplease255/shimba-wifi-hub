@@ -3,5 +3,31 @@
   "buildCommand": "vite build",
   "outputDirectory": ".vercel/output",
   "framework": "nitro",
-  "installCommand": "npm install"
+  "installCommand": "npm install",
+  "rewrites": [
+    {
+      "source": "/api/proxy/:path*",
+      "destination": "https://shimbawifi.xyz/:path*"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "https://shimbawifi.xyz/api/$1"
+    },
+    {
+      "source": "/pay-mongike",
+      "destination": "https://shimbawifi.xyz/pay-mongike"
+    },
+    {
+      "source": "/payment-status/:orderReference",
+      "destination": "https://shimbawifi.xyz/payment-status/:orderReference"
+    },
+    {
+      "source": "/packages",
+      "destination": "https://shimbawifi.xyz/packages"
+    },
+    {
+      "source": "/health",
+      "destination": "https://shimbawifi.xyz/health"
+    }
+  ]
 }

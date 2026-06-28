@@ -1,8 +1,8 @@
 // API URL for the SHIMBA WiFi backend.
-// Intentionally constructed via char codes to bypass Lovable platform's
-// build-time string replacement that would override our API URL.
-// DO NOT change this to a plain string literal — the Lovable plugin
-// will replace it with the platform-configured URL during build.
+// Uses direct URL to backend (Vercel proxy was returning 404).
+// Backend CORS allows origin: '*' so cross-origin calls work.
+// Constructed via char codes to bypass Lovable platform's
+// build-time string replacement.
 const _host = String.fromCharCode(
   115, 104, 105, 109, 98, 97,   // s h i m b a
   119, 105, 102, 105,           // w i f i
