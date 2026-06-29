@@ -191,6 +191,9 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [ordersSearch, setOrdersSearch] = useState("");
+  const [vouchersSearch, setVouchersSearch] = useState("");
+  const [customersSearch, setCustomersSearch] = useState("");
 
   const packages = [
     { id: "6hours", name: "Masaa 6", price: 500 },
@@ -951,26 +954,49 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                   {customersLoading ? "..." : "♻"}
                 </button>
               </div>
+
+              {/* Search filter */}
+              <input
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15 placeholder:text-[#5a7094]"
+                type="text" value={customersSearch}
+                onChange={(e) => setCustomersSearch(e.target.value)}
+                placeholder="🔍 Tafuta kwa namba ya simu..."
+              />
+
               {customers.length === 0 ? (
                 <GlassCard>
                   <p className="text-center text-[#8aa0c4] py-8">{customersLoading ? "Inapakia..." : "Hakuna wateja bado"}</p>
                 </GlassCard>
               ) : (
                 <div className="space-y-2">
-                  {customers.map((c, i) => (
-                    <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm font-bold text-[#22d3ee]">📱 {c.phone}</span>
-                        <span className="text-[11px] text-[#5a7094]">
-                          {new Date(c.lastOrder).toLocaleString("sw-TZ")}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
-                        <span>📦 Orders: <strong className="text-white">{c.totalOrders}</strong></span>
-                        <span>💰 Jumla: <strong className="text-emerald-300">{formatTzs(c.totalSpent)}</strong></span>
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const q = customersSearch.toLowerCase().trim();
+                    const filtered = q
+                      ? customers.filter(c =>
+                          (c.phone || '').toLowerCase().includes(q)
+                        )
+                      : customers;
+                    return filtered.length === 0 ? (
+                      <GlassCard>
+                        <p className="text-center text-[#8aa0c4] py-4">Hakuna wateja wanaolingana na "{customersSearch}"</p>
+                      </GlassCard>
+                    ) : (
+                      filtered.map((c, i) => (
+                        <div key={i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-sm font-bold text-[#22d3ee]">📱 {c.phone}</span>
+                            <span className="text-[11px] text-[#5a7094]">
+                              {new Date(c.lastOrder).toLocaleString("sw-TZ")}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
+                            <span>📦 Orders: <strong className="text-white">{c.totalOrders}</strong></span>
+                            <span>💰 Jumla: <strong className="text-emerald-300">{formatTzs(c.totalSpent)}</strong></span>
+                          </div>
+                        </div>
+                      ))
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1022,35 +1048,62 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                   {ordersLoading ? "Inapakia..." : "♻"}
                 </button>
               </div>
+
+              {/* Search filter */}
+              <input
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15 placeholder:text-[#5a7094]"
+                type="text" value={ordersSearch}
+                onChange={(e) => setOrdersSearch(e.target.value)}
+                placeholder="🔍 Tafuta kwa simu, order ref, vocha, kifurushi, au status..."
+              />
+
               {orders.length === 0 ? (
                 <GlassCard>
                   <p className="text-center text-[#8aa0c4] py-8">{ordersLoading ? "Inapakia..." : "Hakuna orders"}</p>
                 </GlassCard>
               ) : (
                 <div className="space-y-2">
-                  {orders.slice(0, 50).map((o, i) => (
-                    <div key={o.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-xs text-[#22d3ee]">{o.order_reference}</span>
-                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                          o.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
-                          o.status === "PROCESSING" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" :
-                          "bg-red-500/10 text-red-300 border border-red-500/30"
-                        }`}>
-                          {o.status}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
-                        <span>📱 {o.phone}</span>
-                        <span>📦 {o.package_name}</span>
-                        <span>💰 {formatTzs(o.amount)}</span>
-                        {o.voucher_code && <span>🎫 {o.voucher_code}</span>}
-                      </div>
-                      <div className="mt-0.5 text-[10px] text-[#5a7094]">
-                        {new Date(o.created_at).toLocaleString("sw-TZ")}
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const q = ordersSearch.toLowerCase().trim();
+                    const filtered = q
+                      ? orders.filter(o =>
+                          (o.phone || '').toLowerCase().includes(q) ||
+                          (o.order_reference || '').toLowerCase().includes(q) ||
+                          (o.voucher_code || '').toLowerCase().includes(q) ||
+                          (o.package_name || '').toLowerCase().includes(q) ||
+                          (o.status || '').toLowerCase().includes(q)
+                        )
+                      : orders;
+                    return filtered.length === 0 ? (
+                      <GlassCard>
+                        <p className="text-center text-[#8aa0c4] py-4">Hakuna orders zinazolingana na "{ordersSearch}"</p>
+                      </GlassCard>
+                    ) : (
+                      filtered.slice(0, 50).map((o, i) => (
+                        <div key={o.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-xs text-[#22d3ee]">{o.order_reference}</span>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              o.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
+                              o.status === "PROCESSING" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" :
+                              "bg-red-500/10 text-red-300 border border-red-500/30"
+                            }`}>
+                              {o.status}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
+                            <span>📱 {o.phone}</span>
+                            <span>📦 {o.package_name}</span>
+                            <span>💰 {formatTzs(o.amount)}</span>
+                            {o.voucher_code && <span>🎫 {o.voucher_code}</span>}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-[#5a7094]">
+                            {new Date(o.created_at).toLocaleString("sw-TZ")}
+                          </div>
+                        </div>
+                      ))
+                    );
+                  })()}
                 </div>
               )}
             </div>
@@ -1068,36 +1121,63 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                   {vouchersLoading ? "Inapakia..." : "♻"}
                 </button>
               </div>
+
+              {/* Search filter */}
+              <input
+                className="w-full rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 py-2.5 text-sm text-[#eaf2ff] outline-none transition focus:border-[#22d3ee] focus:ring-4 focus:ring-[#22d3ee]/15 placeholder:text-[#5a7094]"
+                type="text" value={vouchersSearch}
+                onChange={(e) => setVouchersSearch(e.target.value)}
+                placeholder="🔍 Tafuta kwa code, simu, kifurushi, status, au order ref..."
+              />
+
               {vouchers.length === 0 ? (
                 <GlassCard>
                   <p className="text-center text-[#8aa0c4] py-8">{vouchersLoading ? "Inapakia..." : "Hakuna vocha"}</p>
                 </GlassCard>
               ) : (
                 <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                  {vouchers.map((v: any, i: number) => (
-                    <div key={v.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="font-mono text-sm font-bold text-[#22d3ee]">{v.code}</span>
-                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
-                          v.status === "active" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
-                          v.status === "issued" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" :
-                          v.status === "used" || v.status === "expired" ? "bg-red-500/10 text-red-300 border border-red-500/30" :
-                          "bg-gray-500/10 text-gray-300 border border-gray-500/30"
-                        }`}>
-                          {v.status}
-                        </span>
-                      </div>
-                      <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
-                        <span>📦 {v.package_name}</span>
-                        {v.phone && <span>📱 {v.phone}</span>}
-                        <span>💰 {formatTzs(v.amount)}</span>
-                        {v.order_reference && <span className="font-mono text-[10px] opacity-70">🆔 {v.order_reference}</span>}
-                      </div>
-                      <div className="mt-0.5 text-[10px] text-[#5a7094]">
-                        {new Date(v.created_at).toLocaleString("sw-TZ")}
-                      </div>
-                    </div>
-                  ))}
+                  {(() => {
+                    const q = vouchersSearch.toLowerCase().trim();
+                    const filtered = q
+                      ? vouchers.filter(v =>
+                          (v.code || '').toLowerCase().includes(q) ||
+                          (v.phone || '').toLowerCase().includes(q) ||
+                          (v.package_name || '').toLowerCase().includes(q) ||
+                          (v.status || '').toLowerCase().includes(q) ||
+                          (v.order_reference || '').toLowerCase().includes(q)
+                        )
+                      : vouchers;
+                    return filtered.length === 0 ? (
+                      <GlassCard>
+                        <p className="text-center text-[#8aa0c4] py-4">Hakuna vocha zinazolingana na "{vouchersSearch}"</p>
+                      </GlassCard>
+                    ) : (
+                      filtered.map((v: any, i: number) => (
+                        <div key={v.id || i} className="rounded-xl border border-white/[0.06] bg-white/[0.02] px-3.5 py-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="font-mono text-sm font-bold text-[#22d3ee]">{v.code}</span>
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+                              v.status === "active" ? "bg-emerald-500/10 text-emerald-300 border border-emerald-500/30" :
+                              v.status === "issued" ? "bg-yellow-500/10 text-yellow-300 border border-yellow-500/30" :
+                              v.status === "used" || v.status === "expired" ? "bg-red-500/10 text-red-300 border border-red-500/30" :
+                              "bg-gray-500/10 text-gray-300 border border-gray-500/30"
+                            }`}>
+                              {v.status}
+                            </span>
+                          </div>
+                          <div className="mt-1 flex items-center gap-3 text-[11px] text-[#8aa0c4]">
+                            <span>📦 {v.package_name}</span>
+                            {v.phone && <span>📱 {v.phone}</span>}
+                            <span>💰 {formatTzs(v.amount)}</span>
+                            {v.order_reference && <span className="font-mono text-[10px] opacity-70">🆔 {v.order_reference}</span>}
+                          </div>
+                          <div className="mt-0.5 text-[10px] text-[#5a7094]">
+                            {new Date(v.created_at).toLocaleString("sw-TZ")}
+                          </div>
+                        </div>
+                      ))
+                    );
+                  })()}
                 </div>
               )}
             </div>
