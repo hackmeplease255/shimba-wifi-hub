@@ -545,8 +545,8 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                 </GlassCard>
               ) : (
                 <div className="space-y-3">
-                  {connected.map((u, i) => (
-                    <div key={u.code || i} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
+                  {connected.map((u) => (
+                    <div key={u.mac || u.code} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
                       {/* Header: live indicator + voucher code + package */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
