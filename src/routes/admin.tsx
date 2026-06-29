@@ -25,13 +25,18 @@ interface Stats {
 }
 
 interface ConnectedUser {
-  id: number;
   user: string;
   code: string;
   mac: string;
   ip: string;
   package_name: string;
   login_at: string;
+  phone: string;
+  amount: number;
+  voucher_status: string;
+  remaining: string;
+  remaining_ms: number;
+  login_since: number;
 }
 
 function AdminPage() {
@@ -396,10 +401,11 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
   useEffect(() => { fetchByTab(tab); }, [tab]);
 
-  // Auto-refresh connected users every 15 seconds
+  // Auto-refresh connected users every 5 seconds (real-time)
   useEffect(() => {
     if (tab !== "connected") return;
-    const interval = setInterval(fetchConnected, 15_000);
+    fetchConnected(); // immediate first fetch
+    const interval = setInterval(fetchConnected, 5_000);
     return () => clearInterval(interval);
   }, [tab, token]);
 
@@ -540,11 +546,14 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
               ) : (
                 <div className="space-y-3">
                   {connected.map((u, i) => (
-                    <div key={u.id || i} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
-                      {/* Header: voucher code + package */}
+                    <div key={u.code || i} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
+                      {/* Header: live indicator + voucher code + package */}
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
-                          <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                          </span>
                           <span className="font-mono text-base font-bold text-[#22d3ee]">{u.code}</span>
                         </div>
                         <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-semibold text-[#8aa0c4]">
@@ -552,21 +561,30 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                         </span>
                       </div>
 
-                      {/* Key-value grid: IP + MAC prominently displayed */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {/* Grid: IP + MAC + Phone + Remaining time */}
+                      <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
-                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">🌐 IP Address</div>
+                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">🌐 IP</div>
                           <div className="font-mono text-sm font-semibold text-[#eaf2ff]">{u.ip}</div>
                         </div>
                         <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
-                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">📶 MAC Address (Binded)</div>
-                          <div className="font-mono text-sm font-semibold text-[#22d3ee]">{u.mac}</div>
+                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">📶 MAC</div>
+                          <div className="font-mono text-sm font-semibold text-[#22d3ee] truncate" title={u.mac}>{u.mac}</div>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">📱 Simu</div>
+                          <div className="font-mono text-sm font-semibold text-[#eaf2ff]">{u.phone || '—'}</div>
+                        </div>
+                        <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
+                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">⏱ Imebaki</div>
+                          <div className={`font-mono text-sm font-semibold ${u.remaining ? 'text-emerald-300' : 'text-[#5a7094]'}`}>{u.remaining || '—'}</div>
                         </div>
                       </div>
 
-                      {/* Login time */}
-                      <div className="mt-2 text-[11px] text-[#5a7094] text-right">
-                        🕐 {new Date(u.login_at).toLocaleString("sw-TZ")}
+                      {/* Login time + duration */}
+                      <div className="mt-2 flex items-center justify-between text-[11px] text-[#5a7094]">
+                        <span>🕐 {new Date(u.login_at).toLocaleString("sw-TZ")}</span>
+                        <span>⏳ {u.login_since ? `${u.login_since}m iliyopita` : 'sasa hivi'}</span>
                       </div>
                     </div>
                   ))}
