@@ -40,14 +40,37 @@ function PortalPage() {
   const [voucherPrefill, setVoucherPrefill] = useState("");
   const [connecting, setConnecting] = useState<string | null>(null);
 
-  // Auto-connect: if MikroTik redirected us with a MAC, check for an active voucher
+  // Auto-connect: check localStorage first, then backend MAC association
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const mac = params.get("mac");
+
+    // Check localStorage for saved voucher first
+    try {
+      const saved = localStorage.getItem("shimba_voucher");
+      if (saved) {
+        const data = JSON.parse(saved);
+        if (data.code) {
+          // Don't check expiry here — MikroTik will reject expired vouchers
+          // If it fails, user can come back to the portal
+          setConnecting("connecting");
+          redirectToMikrotik(data.code);
+          return; // Stop — we're redirecting
+        }
+      }
+    } catch { /* ignore parse errors */ }
+
     if (mac) {
       setConnecting("connecting");
       autoConnect(mac).then((r) => {
         if (r.auto && r.code) {
+          // Save to localStorage for future visits
+          try {
+            localStorage.setItem("shimba_voucher", JSON.stringify({
+              code: r.code,
+              savedAt: Date.now(),
+            }));
+          } catch { /* ignore */ }
           // Redirect langsung kwa MikroTik login
           redirectToMikrotik(r.code);
         } else {
@@ -368,19 +391,28 @@ function UseTab({ prefill }: { prefill: string }) {
     try {
       const r = await checkVoucher(c);
       setResult(r);
-      // Order matters: check 'used' FIRST because backend returns
-      // { success: true, status: 'used' } — r?.success would match before 'used' check!
+      // Different messages for different voucher statuses
       if (r?.status === "used") {
-        setMsg({ kind: "error", text: "Code iliyo ingiza imeshatumika tafadhali nunua vocha." });
+        setMsg({ kind: "error", text: "❌ Vocha hii imeshatumika. Tafadhali nunua mpya kwenye tab ya Nunua Vocha." });
+        setResult(null);
+      } else if (r?.status === "expired") {
+        setMsg({ kind: "error", text: "❌ Vocha yako muda wake umekwisha. Tafadhali nunua mpya kwenye tab ya Nunua Vocha." });
         setResult(null);
       } else if (r?.status === "valid" || r?.valid === true || r?.success === true) {
-        setMsg({ kind: "success", text: "Vocha ni halali!" });
+        setMsg({ kind: "success", text: "✅ Vocha ni halali! Bonyeza kitufe cha 'Ingia kwenye WiFi' kuunganisha." });
       } else {
-        setMsg({ kind: "error", text: "Code uliyoingiza sio sahihi tafadhali ingia kwenye tab ya kununua vocha na ununue vocha." });
+        setMsg({ kind: "error", text: "❌ Hii vocha haipo. Tafadhali nenda kwenye tab ya Nunua Vocha na ununue vocha mpya." });
         setResult(null);
       }
     } catch (err: any) {
-      setMsg({ kind: "error", text: err?.message || "Tatizo kuangalia vocha." });
+      // Backend returns 404 when voucher not found — caught as error
+      const msgText = err?.message || "";
+      if (msgText.includes("404") || msgText.includes("haijapatikana") || msgText.includes("not found")) {
+        setMsg({ kind: "error", text: "❌ Hii vocha haipo. Tafadhali nenda kwenye tab ya Nunua Vocha na ununue vocha mpya." });
+      } else {
+        setMsg({ kind: "error", text: "❌ " + (msgText || "Tatizo kuangalia vocha. Jaribu tena.") });
+      }
+      setResult(null);
     } finally {
       setLoading(false);
     }
@@ -425,7 +457,16 @@ function UseTab({ prefill }: { prefill: string }) {
           {/* Primary connect button - redirect langsung kwa MikroTik login */}
           <button
             onClick={async () => {
-              // First associate MAC with voucher for auto-connect on return
+              // Save voucher to localStorage for auto-reconnect on return
+              // Max 7 days expiry — actual expiry is checked by MikroTik
+              try {
+                localStorage.setItem("shimba_voucher", JSON.stringify({
+                  code: code.trim(),
+                  savedAt: Date.now(),
+                }));
+              } catch { /* localStorage full — ignore */ }
+
+              // Associate MAC with voucher for backend auto-connect
               const mac = getMacFromUrl();
               const ip = new URLSearchParams(window.location.search).get("ip") || "";
               if (mac) {
