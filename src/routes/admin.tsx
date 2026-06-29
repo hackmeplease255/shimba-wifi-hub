@@ -191,10 +191,6 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
-  const [usage, setUsage] = useState<{ date: string; bytes_in: number; bytes_out: number }[]>([]);
-  const [usageTotal, setUsageTotal] = useState<{ bytes_in: number; bytes_out: number }>({ bytes_in: 0, bytes_out: 0 });
-  const [usageLoading, setUsageLoading] = useState(false);
-  const [usageView, setUsageView] = useState<"daily" | "weekly" | "monthly">("daily");
 
   const packages = [
     { id: "6hours", name: "Masaa 6", price: 500 },
@@ -289,22 +285,6 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     } finally {
       setDisconnecting(null);
     }
-  }
-
-  async function fetchUsage() {
-    setUsageLoading(true);
-    try {
-      const res = await fetch(`${API_URL}/api/admin/usage?view=${usageView}&period=30`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.status === 401) return handleUnauthorized();
-      const data = await res.json();
-      if (data.success) {
-        setUsage(data.usage || []);
-        setUsageTotal(data.total || { bytes_in: 0, bytes_out: 0 });
-      }
-    } catch { /* ignore */ }
-    finally { setUsageLoading(false); }
   }
 
   async function handleCreateVoucher(e: React.FormEvent) {
@@ -461,15 +441,15 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     else if (t === "orders") fetchOrders();
     else if (t === "vouchers") fetchVouchers();
     else if (t === "customers") fetchCustomers();
-    else if (t === "usage") fetchUsage();
+    else if (t === "usage") fetchConnected();
     else if (t === "logs") fetchEvents();
   }, [token]);
 
   useEffect(() => { fetchByTab(tab); }, [tab]);
 
-  // Auto-refresh connected users every 5 seconds (real-time)
+  // Auto-refresh connected + usage every 5 seconds (real-time)
   useEffect(() => {
-    if (tab !== "connected") return;
+    if (tab !== "connected" && tab !== "usage") return;
     fetchConnected(); // immediate first fetch
     const interval = setInterval(fetchConnected, 5_000);
     return () => clearInterval(interval);
@@ -863,78 +843,98 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
           {tab === "usage" && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between">
                 <h2 className="text-xl font-bold flex items-center gap-2">
-                  <span>📊</span> Matumizi ya Mtandao
+                  <span>📊</span> Matumizi Moja kwa Moja
                 </h2>
                 <div className="flex items-center gap-2">
-                  <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-0.5">
-                    <button onClick={() => { setUsageView("daily"); setTimeout(fetchUsage, 0); }}
-                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
-                        usageView === "daily"
-                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
-                          : "text-[#5a7094] hover:text-white"
-                      }`}>Siku</button>
-                    <button onClick={() => { setUsageView("weekly"); setTimeout(fetchUsage, 0); }}
-                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
-                        usageView === "weekly"
-                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
-                          : "text-[#5a7094] hover:text-white"
-                      }`}>Wiki</button>
-                    <button onClick={() => { setUsageView("monthly"); setTimeout(fetchUsage, 0); }}
-                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
-                        usageView === "monthly"
-                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
-                          : "text-[#5a7094] hover:text-white"
-                      }`}>Mwezi</button>
+                  <div className="rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-sm font-bold text-emerald-300">
+                    {totalUnique} devices
                   </div>
-                  <button onClick={fetchUsage} disabled={usageLoading}
+                  <button onClick={fetchConnected} disabled={connectedLoading}
                     className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50">
-                    {usageLoading ? "..." : "♻"}
+                    {connectedLoading ? "..." : "♻"}
                   </button>
                 </div>
               </div>
 
-              {/* Total usage cards */}
-              <div className="grid grid-cols-2 gap-3">
-                <StatCard label="Jumla Download" value={formatBytes(usageTotal.bytes_in)} color="cyan" />
-                <StatCard label="Jumla Upload" value={formatBytes(usageTotal.bytes_out)} color="emerald" />
-              </div>
+              {/* Live total bandwidth cards */}
+              {connected.length > 0 && (
+                <div className="grid grid-cols-2 gap-3">
+                  <StatCard label="Jumla Download (Moja kwa Moja)" value={formatBytes(connected.reduce((s, u) => s + (u.bytes_in || 0), 0))} color="cyan" />
+                  <StatCard label="Jumla Upload (Moja kwa Moja)" value={formatBytes(connected.reduce((s, u) => s + (u.bytes_out || 0), 0))} color="emerald" />
+                </div>
+              )}
 
-              {/* Usage chart */}
-              {usage.length === 0 ? (
+              {/* Live per-user bandwidth cards */}
+              {connected.length === 0 ? (
                 <GlassCard>
-                  <p className="text-center text-[#8aa0c4] py-8">{usageLoading ? "Inapakia..." : "Hakuna data ya matumizi bado. Data itaonekana baada ya muda kwa kuwa tunakusanya kila sekunde 30."}</p>
+                  <p className="text-center text-[#8aa0c4] py-8">{connectedLoading ? "Inapakia..." : "Hakuna mtumiaji aliyeunganishwa sasa. Wateja wanapounganishwa, utaona matumizi yao ya bundle hapa moja kwa moja."}</p>
                 </GlassCard>
               ) : (
-                <GlassCard>
-                  <div className="flex items-end gap-2 h-40" style={{ minHeight: "160px" }}>
-                    {usage.map((r, i) => {
-                      const maxBytes = Math.max(...usage.map(x => x.bytes_in + x.bytes_out), 1);
-                      const dlHeight = ((r.bytes_in) / maxBytes) * 100;
-                      const ulHeight = ((r.bytes_out) / maxBytes) * 100;
-                      const label = usageView === "monthly" ? r.date : r.date?.slice(5) || '';
-                      return (
-                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative min-w-0">
-                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0a0f1e] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-white font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
-                            ⬇ {formatBytes(r.bytes_in)} ⬆ {formatBytes(r.bytes_out)}
-                          </div>
-                          <div className="w-full flex flex-col-reverse gap-[2px]" style={{ height: `${Math.max(dlHeight + ulHeight, 2)}%` }}>
-                            <div className="w-full rounded-t-sm bg-gradient-to-t from-[#22d3ee] to-[#3b82f6] transition-all hover:brightness-110"
-                              style={{ height: `${Math.max(dlHeight, 1)}%` }} />
-                            <div className="w-full rounded-t-sm bg-gradient-to-t from-emerald-400 to-emerald-600 transition-all hover:brightness-110"
-                              style={{ height: `${Math.max(ulHeight, 1)}%` }} />
-                          </div>
-                          <span className="text-[9px] text-[#5a7094] truncate w-full text-center">{label}</span>
+                <div className="space-y-3">
+                  {connected.map((u) => {
+                    const totalBytes = (u.bytes_in || 0) + (u.bytes_out || 0);
+                    return (
+                    <div key={u.mac || u.code} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
+                      {/* Header */}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="relative flex h-2.5 w-2.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                          </span>
+                          <span className="font-mono text-base font-bold text-[#22d3ee]">{u.code}</span>
                         </div>
-                      );
-                    })}
-                  </div>
-                  <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#5a7094]">
-                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gradient-to-t from-[#22d3ee] to-[#3b82f6]"></span> Download</span>
-                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gradient-to-t from-emerald-400 to-emerald-600"></span> Upload</span>
-                  </div>
-                </GlassCard>
+                        <span className="rounded-full border border-white/[0.08] bg-white/[0.04] px-2.5 py-0.5 text-[11px] font-semibold text-[#8aa0c4]">
+                          📦 {u.package_name}
+                        </span>
+                      </div>
+
+                      {/* Bandwidth usage — prominent display */}
+                      <div className="grid grid-cols-2 gap-2 mb-3">
+                        <div className="rounded-xl border border-[#22d3ee]/20 bg-gradient-to-br from-[#22d3ee]/10 to-[#22d3ee]/5 px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">⬇ Download</div>
+                          <div className="font-mono text-lg font-black text-[#22d3ee] tabular-nums">{formatBytes(u.bytes_in || 0)}</div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 px-3 py-3">
+                          <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">⬆ Upload</div>
+                          <div className="font-mono text-lg font-black text-emerald-300 tabular-nums">{formatBytes(u.bytes_out || 0)}</div>
+                        </div>
+                      </div>
+
+                      {/* Total usage bar */}
+                      <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2 mb-3">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-[10px] uppercase tracking-wider text-[#5a7094]">📦 Jumla Bundle Imetumika</span>
+                          <span className="font-mono text-xs font-bold text-white">{formatBytes(totalBytes)}</span>
+                        </div>
+                        <div className="h-2 rounded-full bg-[#0a1426] overflow-hidden">
+                          <div className="h-full rounded-full bg-gradient-to-r from-[#22d3ee] via-[#3b82f6] to-emerald-400 transition-all duration-500"
+                            style={{ width: `${Math.min((totalBytes / 104857600) * 100, 100)}%` }} />
+                        </div>
+                        <div className="flex justify-between mt-0.5 text-[9px] text-[#5a7094]">
+                          <span>0</span>
+                          <span>~100 MB</span>
+                        </div>
+                      </div>
+
+                      {/* User info */}
+                      <div className="grid grid-cols-2 gap-2 text-[11px] text-[#5a7094]">
+                        <div className="flex items-center gap-1"><span>🌐</span><span className="font-mono truncate">{u.ip}</span></div>
+                        <div className="flex items-center gap-1"><span>📶</span><span className="font-mono truncate" title={u.mac}>{u.mac}</span></div>
+                        <div className="flex items-center gap-1"><span>📱</span><span>{u.phone || '—'}</span></div>
+                        <div className="flex items-center gap-1"><span>⏱</span><span>{u.remaining || '—'}</span></div>
+                      </div>
+
+                      {/* Login time */}
+                      <div className="mt-2 text-[10px] text-[#4a6084]">
+                        🕐 {new Date(u.login_at).toLocaleString("sw-TZ")} · ⏳ {u.login_since ? `${u.login_since}m iliyopita` : 'sasa hivi'}
+                      </div>
+                    </div>
+                    );
+                  })}
+                </div>
               )}
             </div>
           )}
