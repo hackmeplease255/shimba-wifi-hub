@@ -47,6 +47,24 @@ interface ByteSnapshot {
   time: number;
 }
 
+/* ── Utility helpers ── */
+
+function formatBytes(bytes: number): string {
+  if (!bytes || bytes <= 0) return '0 B';
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
+  let b = bytes;
+  while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
+  return `${b.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}
+
+function formatSpeed(bps: number): string {
+  if (bps <= 0) return '0 B/s';
+  if (bps < 1024) return `${bps.toFixed(0)} B/s`;
+  if (bps < 1048576) return `${(bps / 1024).toFixed(1)} KB/s`;
+  return `${(bps / 1048576).toFixed(1)} MB/s`;
+}
+
 function AdminPage() {
   const [page, setPage] = useState<Page>("login");
   const [token, setToken] = useState<string>("");
@@ -94,15 +112,6 @@ function AdminPage() {
     sessionStorage.removeItem("admin_token");
     setToken("");
     setPage("login");
-  }
-
-  function formatBytes(bytes: number): string {
-    if (!bytes || bytes <= 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let i = 0;
-    let b = bytes;
-    while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
-    return `${b.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
   }
 
   if (page === "login") {
@@ -579,13 +588,6 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                     }
                     // Store current as previous for next calculation
                     prevBytes.current.set(key, { bytes_in: u.bytes_in, bytes_out: u.bytes_out, time: now });
-
-                    function formatSpeed(bps: number): string {
-                      if (bps <= 0) return '0 B/s';
-                      if (bps < 1024) return `${bps.toFixed(0)} B/s`;
-                      if (bps < 1048576) return `${(bps / 1024).toFixed(1)} KB/s`;
-                      return `${(bps / 1048576).toFixed(1)} MB/s`;
-                    }
 
                     return (
                     <div key={u.mac || u.code} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
