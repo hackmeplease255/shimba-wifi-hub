@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { API_URL, formatTzs } from "@/lib/api";
 
 export const Route = createFileRoute("/admin")({
@@ -37,6 +37,14 @@ interface ConnectedUser {
   remaining: string;
   remaining_ms: number;
   login_since: number;
+  bytes_in: number;
+  bytes_out: number;
+}
+
+interface ByteSnapshot {
+  bytes_in: number;
+  bytes_out: number;
+  time: number;
 }
 
 function AdminPage() {
@@ -86,6 +94,15 @@ function AdminPage() {
     sessionStorage.removeItem("admin_token");
     setToken("");
     setPage("login");
+  }
+
+  function formatBytes(bytes: number): string {
+    if (!bytes || bytes <= 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let i = 0;
+    let b = bytes;
+    while (b >= 1024 && i < units.length - 1) { b /= 1024; i++; }
+    return `${b.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
   }
 
   if (page === "login") {
@@ -174,6 +191,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [customersLoading, setCustomersLoading] = useState(false);
   const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const prevBytes = useRef<Map<string, ByteSnapshot>>(new Map());
 
   const packages = [
     { id: "6hours", name: "Masaa 6", price: 500 },
@@ -545,7 +563,31 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                 </GlassCard>
               ) : (
                 <div className="space-y-3">
-                  {connected.map((u) => (
+                  {connected.map((u) => {
+                    // Calculate bandwidth speed
+                    const key = u.mac || u.code;
+                    const now = Date.now();
+                    const prev = prevBytes.current.get(key);
+                    let dlSpeed = 0;
+                    let ulSpeed = 0;
+                    if (prev && prev.bytes_in > 0 && prev.time > 0) {
+                      const dt = (now - prev.time) / 1000; // seconds
+                      if (dt > 0) {
+                        dlSpeed = Math.max(0, (u.bytes_in - prev.bytes_in) / dt);
+                        ulSpeed = Math.max(0, (u.bytes_out - prev.bytes_out) / dt);
+                      }
+                    }
+                    // Store current as previous for next calculation
+                    prevBytes.current.set(key, { bytes_in: u.bytes_in, bytes_out: u.bytes_out, time: now });
+
+                    function formatSpeed(bps: number): string {
+                      if (bps <= 0) return '0 B/s';
+                      if (bps < 1024) return `${bps.toFixed(0)} B/s`;
+                      if (bps < 1048576) return `${(bps / 1024).toFixed(1)} KB/s`;
+                      return `${(bps / 1048576).toFixed(1)} MB/s`;
+                    }
+
+                    return (
                     <div key={u.mac || u.code} className="rounded-[16px] border border-white/[0.06] bg-white/[0.02] p-4">
                       {/* Header: live indicator + voucher code + package */}
                       <div className="flex items-center justify-between mb-3">
@@ -565,7 +607,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                       <div className="grid grid-cols-2 gap-2">
                         <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
                           <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">🌐 IP</div>
-                          <div className="font-mono text-sm font-semibold text-[#eaf2ff]">{u.ip}</div>
+                          <div className="font-mono text-sm font-semibold text-[#eaf2ff] truncate">{u.ip}</div>
                         </div>
                         <div className="rounded-xl border border-white/[0.05] bg-white/[0.02] px-3 py-2">
                           <div className="text-[10px] uppercase tracking-wider text-[#5a7094] mb-0.5">📶 MAC</div>
@@ -581,13 +623,41 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                         </div>
                       </div>
 
+                      {/* Bandwidth meters */}
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="rounded-xl border border-[#22d3ee]/15 bg-[#22d3ee]/5 px-3 py-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-wider text-[#5a7094]">⬇ Download</span>
+                            <span className="font-mono text-xs font-bold text-[#22d3ee]">{formatSpeed(dlSpeed)}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#0a1426] overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-[#22d3ee] to-[#3b82f6] transition-all duration-500"
+                              style={{ width: `${Math.min((dlSpeed / 1048576) * 100, 100)}%` }} />
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-500/5 px-3 py-2">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] uppercase tracking-wider text-[#5a7094]">⬆ Upload</span>
+                            <span className="font-mono text-xs font-bold text-emerald-300">{formatSpeed(ulSpeed)}</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-[#0a1426] overflow-hidden">
+                            <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-emerald-600 transition-all duration-500"
+                              style={{ width: `${Math.min((ulSpeed / 1048576) * 100, 100)}%` }} />
+                          </div>
+                        </div>
+                      </div>
+
                       {/* Login time + duration */}
                       <div className="mt-2 flex items-center justify-between text-[11px] text-[#5a7094]">
                         <span>🕐 {new Date(u.login_at).toLocaleString("sw-TZ")}</span>
-                        <span>⏳ {u.login_since ? `${u.login_since}m iliyopita` : 'sasa hivi'}</span>
+                        <div className="flex items-center gap-3">
+                          <span>📊 {formatBytes(u.bytes_in)} / {formatBytes(u.bytes_out)}</span>
+                          <span>⏳ {u.login_since ? `${u.login_since}m iliyopita` : 'sasa hivi'}</span>
+                        </div>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
