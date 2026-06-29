@@ -4,6 +4,7 @@ import {
   API_URL,
   associateMac,
   autoConnect,
+  autoLogin,
   checkVoucher,
   extractReference,
   formatTzs,
@@ -51,11 +52,25 @@ function PortalPage() {
       if (saved) {
         const data = JSON.parse(saved);
         if (data.code) {
-          // Don't check expiry here — MikroTik will reject expired vouchers
-          // If it fails, user can come back to the portal
           setConnecting("connecting");
-          redirectToMikrotik(data.code);
-          return; // Stop — we're redirecting
+          // Call auto-login to push voucher to MikroTik BEFORE redirecting
+          autoLogin(data.code, mac || undefined).then((r) => {
+            if (r.auto && r.login_url) {
+              // Voucher is valid + pushed to MikroTik → redirect langsung
+              window.location.href = r.login_url;
+            } else if (r.reason === 'expired' || r.reason === 'not_found') {
+              // Voucher expired or not found → remove from localStorage, show portal
+              try { localStorage.removeItem("shimba_voucher"); } catch {}
+              setConnecting(null);
+            } else {
+              // Auto-login failed (network issue) → try direct redirect anyway
+              redirectToMikrotik(data.code);
+            }
+          }).catch(() => {
+            // Fallback: direct redirect
+            redirectToMikrotik(data.code);
+          });
+          return; // Stop — we're redirecting or checking
         }
       }
     } catch { /* ignore parse errors */ }
@@ -71,8 +86,14 @@ function PortalPage() {
               savedAt: Date.now(),
             }));
           } catch { /* ignore */ }
-          // Redirect langsung kwa MikroTik login
-          redirectToMikrotik(r.code);
+          // Call auto-login to ensure voucher is in MikroTik
+          autoLogin(r.code, mac).then((lr) => {
+            if (lr.auto && lr.login_url) {
+              window.location.href = lr.login_url;
+            } else {
+              redirectToMikrotik(r.code!);
+            }
+          }).catch(() => redirectToMikrotik(r.code!));
         } else {
           setConnecting(null);
         }
@@ -454,28 +475,47 @@ function UseTab({ prefill }: { prefill: string }) {
 
       {isValid && (
         <div className="mt-5 space-y-3">
-          {/* Primary connect button - redirect langsung kwa MikroTik login */}
+          {/* Primary connect button - auto-login then redirect kwa MikroTik */}
           <button
             onClick={async () => {
-              // Save voucher to localStorage for auto-reconnect on return
-              // Max 7 days expiry — actual expiry is checked by MikroTik
+              const btn = document.getElementById('connectBtn') as HTMLButtonElement;
+              if (btn) { btn.disabled = true; btn.textContent = 'Inaandaa vocha...'; }
+
               try {
+                // Save voucher to localStorage for auto-reconnect on return
                 localStorage.setItem("shimba_voucher", JSON.stringify({
                   code: code.trim(),
                   savedAt: Date.now(),
                 }));
-              } catch { /* localStorage full — ignore */ }
 
-              // Associate MAC with voucher for backend auto-connect
-              const mac = getMacFromUrl();
-              const ip = new URLSearchParams(window.location.search).get("ip") || "";
-              if (mac) {
-                await associateMac(mac, code, ip);
+                const mac = getMacFromUrl();
+                const ip = new URLSearchParams(window.location.search).get("ip") || "";
+
+                // Step 1: Call auto-login to push voucher to MikroTik
+                const r = await autoLogin(code, mac || undefined);
+
+                // Step 2: Associate MAC with voucher for future auto-reconnect
+                if (mac) {
+                  await associateMac(mac, code, ip);
+                }
+
+                // Step 3: Redirect to MikroTik login with credentials
+                // Use the login_url from auto-login if available, otherwise build it
+                if (r.auto && r.login_url) {
+                  window.location.href = r.login_url;
+                } else {
+                  redirectToMikrotik(code);
+                }
+              } catch {
+                // Fallback: direct redirect
+                if (mac) {
+                  await associateMac(mac, code, ip).catch(() => {});
+                }
+                redirectToMikrotik(code);
               }
-              // Redirect langsung kwa MikroTik login na credentials
-              redirectToMikrotik(code);
             }}
-            className="block w-full cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 hover:shadow-[0_14px_35px_-12px_rgba(16,185,129,0.6)] active:translate-y-px"
+            id="connectBtn"
+            className="block w-full cursor-pointer rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 px-4 py-4 text-center text-base font-extrabold text-white shadow-[0_10px_30px_-12px_rgba(16,185,129,0.5)] transition-all hover:brightness-110 hover:shadow-[0_14px_35px_-12px_rgba(16,185,129,0.6)] active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60"
           >
             📶 Ingia kwenye WiFi
           </button>

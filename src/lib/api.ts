@@ -140,6 +140,27 @@ export async function autoConnect(mac: string): Promise<AutoConnectResponse> {
   return (await jsonOrText(res)) as AutoConnectResponse;
 }
 
+export interface AutoLoginResponse {
+  auto: boolean;
+  code?: string;
+  package_name?: string;
+  synced?: boolean;
+  login_url?: string;
+  message?: string;
+  reason?: string;
+}
+
+export async function autoLogin(code: string, mac?: string): Promise<AutoLoginResponse> {
+  try {
+    let url = `${API_URL}/api/auto-login?code=${encodeURIComponent(code)}`;
+    if (mac) url += `&mac=${encodeURIComponent(mac)}`;
+    const res = await fetch(url);
+    return (await jsonOrText(res)) as AutoLoginResponse;
+  } catch {
+    return { auto: false, reason: 'network_error' };
+  }
+}
+
 export async function associateMac(mac: string, code: string, ip?: string): Promise<{ success: boolean }> {
   try {
     const res = await fetch(`${API_URL}/api/associate-mac`, {
