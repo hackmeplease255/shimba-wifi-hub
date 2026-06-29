@@ -200,6 +200,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [customersLoading, setCustomersLoading] = useState(false);
   const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
+  const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const prevBytes = useRef<Map<string, ByteSnapshot>>(new Map());
 
   const packages = [
@@ -267,6 +268,34 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
       if (data.success) setVouchers(data.vouchers || []);
     } catch { /* ignore */ }
     finally { setVouchersLoading(false); }
+  }
+
+  async function handleDisconnect(code: string, mac: string) {
+    if (!confirm(`Una uhakika unamtoa ${code} kwenye mtandao?`)) return;
+    setDisconnecting(code);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/disconnect-user`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code, mac }),
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) {
+        setMsg({ kind: 'success', text: data.message });
+        // Remove from local state immediately
+        setConnected(prev => prev.filter(u => u.code !== code));
+      } else {
+        setMsg({ kind: 'error', text: data.message || 'Imeshindikana' });
+      }
+    } catch (err: any) {
+      setMsg({ kind: 'error', text: err?.message || 'Tatizo la mtandao' });
+    } finally {
+      setDisconnecting(null);
+    }
   }
 
   async function handleCreateVoucher(e: React.FormEvent) {
@@ -657,6 +686,15 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
                           <span>⏳ {u.login_since ? `${u.login_since}m iliyopita` : 'sasa hivi'}</span>
                         </div>
                       </div>
+
+                      {/* Disconnect button */}
+                      <button
+                        onClick={() => handleDisconnect(u.code, u.mac)}
+                        disabled={disconnecting === u.code}
+                        className="mt-3 w-full rounded-xl border border-red-500/25 bg-red-500/10 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/20 hover:text-red-200 active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {disconnecting === u.code ? 'Inamtoa...' : '🔌 Mtoa Mtumiaji'}
+                      </button>
                     </div>
                     );
                   })}
