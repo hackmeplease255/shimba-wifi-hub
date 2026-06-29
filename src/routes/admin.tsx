@@ -154,7 +154,7 @@ function AdminPage() {
   return <DashboardPage token={token} onLogout={handleLogout} />;
 }
 
-type Tab = "dashboard" | "charts" | "connected" | "create" | "orders" | "vouchers" | "customers" | "logs" | "settings";
+type Tab = "dashboard" | "charts" | "connected" | "create" | "orders" | "vouchers" | "customers" | "logs" | "usage" | "settings";
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "dashboard", label: "Takwimu", icon: "📊" },
@@ -164,6 +164,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: "orders", label: "Orders", icon: "📋" },
   { id: "vouchers", label: "Orodha", icon: "🎫" },
   { id: "customers", label: "Wateja", icon: "👥" },
+  { id: "usage", label: "Matumizi", icon: "📊" },
   { id: "logs", label: "Kumbukumbu", icon: "📝" },
   { id: "settings", label: "Mipangilio", icon: "⚙️" },
 ];
@@ -201,6 +202,10 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
   const [events, setEvents] = useState<{ id: number; type: string; message: string; time: string }[]>([]);
   const [eventsLoading, setEventsLoading] = useState(false);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
+  const [usage, setUsage] = useState<{ date: string; bytes_in: number; bytes_out: number }[]>([]);
+  const [usageTotal, setUsageTotal] = useState<{ bytes_in: number; bytes_out: number }>({ bytes_in: 0, bytes_out: 0 });
+  const [usageLoading, setUsageLoading] = useState(false);
+  const [usageView, setUsageView] = useState<"daily" | "weekly" | "monthly">("daily");
   const prevBytes = useRef<Map<string, ByteSnapshot>>(new Map());
 
   const packages = [
@@ -296,6 +301,22 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     } finally {
       setDisconnecting(null);
     }
+  }
+
+  async function fetchUsage() {
+    setUsageLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/api/admin/usage?view=${usageView}&period=30`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) return handleUnauthorized();
+      const data = await res.json();
+      if (data.success) {
+        setUsage(data.usage || []);
+        setUsageTotal(data.total || { bytes_in: 0, bytes_out: 0 });
+      }
+    } catch { /* ignore */ }
+    finally { setUsageLoading(false); }
   }
 
   async function handleCreateVoucher(e: React.FormEvent) {
@@ -452,6 +473,7 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
     else if (t === "orders") fetchOrders();
     else if (t === "vouchers") fetchVouchers();
     else if (t === "customers") fetchCustomers();
+    else if (t === "usage") fetchUsage();
     else if (t === "logs") fetchEvents();
   }, [token]);
 
@@ -888,6 +910,84 @@ function DashboardPage({ token, onLogout }: { token: string; onLogout: () => voi
 
                 {msg && !createResult && <MessageBox msg={msg} />}
               </GlassCard>
+            </div>
+          )}
+
+          {tab === "usage" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-xl font-bold flex items-center gap-2">
+                  <span>📊</span> Matumizi ya Mtandao
+                </h2>
+                <div className="flex items-center gap-2">
+                  <div className="flex rounded-xl border border-white/[0.08] bg-white/[0.03] p-0.5">
+                    <button onClick={() => { setUsageView("daily"); setTimeout(fetchUsage, 0); }}
+                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
+                        usageView === "daily"
+                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
+                          : "text-[#5a7094] hover:text-white"
+                      }`}>Siku</button>
+                    <button onClick={() => { setUsageView("weekly"); setTimeout(fetchUsage, 0); }}
+                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
+                        usageView === "weekly"
+                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
+                          : "text-[#5a7094] hover:text-white"
+                      }`}>Wiki</button>
+                    <button onClick={() => { setUsageView("monthly"); setTimeout(fetchUsage, 0); }}
+                      className={`px-3 py-1.5 rounded-[10px] text-xs font-bold transition ${
+                        usageView === "monthly"
+                          ? "bg-[#22d3ee]/20 text-[#22d3ee]"
+                          : "text-[#5a7094] hover:text-white"
+                      }`}>Mwezi</button>
+                  </div>
+                  <button onClick={fetchUsage} disabled={usageLoading}
+                    className="rounded-xl border border-white/[0.06] bg-white/[0.03] px-3 py-1.5 text-xs text-[#8aa0c4] hover:text-white disabled:opacity-50">
+                    {usageLoading ? "..." : "♻"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Total usage cards */}
+              <div className="grid grid-cols-2 gap-3">
+                <StatCard label="Jumla Download" value={formatBytes(usageTotal.bytes_in)} color="cyan" />
+                <StatCard label="Jumla Upload" value={formatBytes(usageTotal.bytes_out)} color="emerald" />
+              </div>
+
+              {/* Usage chart */}
+              {usage.length === 0 ? (
+                <GlassCard>
+                  <p className="text-center text-[#8aa0c4] py-8">{usageLoading ? "Inapakia..." : "Hakuna data ya matumizi bado. Data itaonekana baada ya muda kwa kuwa tunakusanya kila sekunde 30."}</p>
+                </GlassCard>
+              ) : (
+                <GlassCard>
+                  <div className="flex items-end gap-2 h-40" style={{ minHeight: "160px" }}>
+                    {usage.map((r, i) => {
+                      const maxBytes = Math.max(...usage.map(x => x.bytes_in + x.bytes_out), 1);
+                      const dlHeight = ((r.bytes_in) / maxBytes) * 100;
+                      const ulHeight = ((r.bytes_out) / maxBytes) * 100;
+                      const label = usageView === "monthly" ? r.date : r.date?.slice(5) || '';
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative min-w-0">
+                          <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-[#0a0f1e] border border-white/[0.08] rounded-lg px-2 py-1 text-[10px] text-white font-bold whitespace-nowrap opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                            ⬇ {formatBytes(r.bytes_in)} ⬆ {formatBytes(r.bytes_out)}
+                          </div>
+                          <div className="w-full flex flex-col-reverse gap-[2px]" style={{ height: `${Math.max(dlHeight + ulHeight, 2)}%` }}>
+                            <div className="w-full rounded-t-sm bg-gradient-to-t from-[#22d3ee] to-[#3b82f6] transition-all hover:brightness-110"
+                              style={{ height: `${Math.max(dlHeight, 1)}%` }} />
+                            <div className="w-full rounded-t-sm bg-gradient-to-t from-emerald-400 to-emerald-600 transition-all hover:brightness-110"
+                              style={{ height: `${Math.max(ulHeight, 1)}%` }} />
+                          </div>
+                          <span className="text-[9px] text-[#5a7094] truncate w-full text-center">{label}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 flex items-center justify-center gap-4 text-[11px] text-[#5a7094]">
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gradient-to-t from-[#22d3ee] to-[#3b82f6]"></span> Download</span>
+                    <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded-sm bg-gradient-to-t from-emerald-400 to-emerald-600"></span> Upload</span>
+                  </div>
+                </GlassCard>
+              )}
             </div>
           )}
 
